@@ -44,7 +44,7 @@ If done with curiosity, this assignment will bring you tons of knowledge about h
 
 -  **Hardware:** 1× H100
 
--  **Software:** Docker + docker-compose, Python with `python3-dev` headers (vLLM's torch.compile path needs them), uv, git  
+-  **Software:** Docker + docker-compose, Python 3.12 with `python3-dev` headers (vLLM's torch.compile path needs them), uv, git  
 
 ---
 
@@ -76,12 +76,13 @@ ssh -L 3000:localhost:3000 \
 
 Each `-L <local-port>:localhost:<vm-port>` line forwards a port on your local machine to the same port on the VM. With the session open, `http://localhost:3000` in your local browser hits Grafana on the VM.
 
-Once connected and forwarded, run the rest on the VM:
+Once connected and forwarded, run the rest on the VM. The repo pins Python 3.12 in `.python-version` because the GPU serving stack (`torch`/vLLM) does not support every newest Python release.
 
 ```bash
 # 1. Clone repo and install dependencies
 git clone <repo-url>
 cd <repo-folder>
+uv python install 3.12
 uv sync
 
 # 2. Configure environment (Langfuse keys go here in Phase 4)

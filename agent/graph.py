@@ -71,7 +71,7 @@ def _attach_schema(state: AgentState) -> dict:
     return {"schema": render_schema(state.db_id)}
 
 
-def _extract_sql(text: str) -> str:
+def _extract_sql_____original(text: str) -> str:
     """Pull a SQL statement out of an LLM reply, stripping markdown fences/prose.
 
     Intentionally simple: take the first ```sql ... ``` block if there is one,
@@ -79,6 +79,12 @@ def _extract_sql(text: str) -> str:
     """
     fenced = re.search(r"```(?:sql)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
     return (fenced.group(1) if fenced else text).strip()
+
+
+def _extract_sql(text: str) -> str:
+    """Pull SQL from an LLM reply and remove Qwen3 thinking blocks."""
+    text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
+    return _extract_sql_____original(text)
 
 
 def generate_sql_node(state: AgentState) -> dict:
