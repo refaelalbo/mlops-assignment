@@ -16,6 +16,17 @@ data/bird/
 results/*.json
 screenshots/*.png
 screenshots/*.jpg
+!results/eval_baseline.json
+!results/eval_after_tuning.json
+!results/phase3_ajax_revise_example.json
+!screenshots/vllm_manual_query.png
+!screenshots/grafana_serving.png
+!screenshots/langfuse_trace.png
+!screenshots/langfuse_tags.png
+!screenshots/grafana_eval_run.png
+!screenshots/grafana_before.png
+!screenshots/grafana_after.png
+!screenshots/phase3_agent_revise.png
 
 # HF cache (if anyone runs locally)
 .cache/

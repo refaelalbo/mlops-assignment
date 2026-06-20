@@ -68,6 +68,8 @@ def answer(req: AnswerRequest) -> AnswerResponse:
     iteration = final.get("iteration", 0)
     history = final.get("history", [])
     execution = final.get("execution")
+    verify_ok = final.get("verify_ok", False)
+    verify_issue = final.get("verify_issue", "")
 
     if execution is None:
         return AnswerResponse(
@@ -85,6 +87,15 @@ def answer(req: AnswerRequest) -> AnswerResponse:
             iterations=iteration,
             ok=False,
             error=execution.error,
+            history=history,
+        )
+    if not verify_ok:
+        return AnswerResponse(
+            sql=sql,
+            rows=[list(r) for r in (execution.rows or [])],
+            iterations=iteration,
+            ok=False,
+            error=verify_issue or "agent verifier rejected the final result",
             history=history,
         )
 
