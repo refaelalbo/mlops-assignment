@@ -17,6 +17,11 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+# Langfuse's SDK reads LANGFUSE_HOST. Some setup snippets call the same value
+# LANGFUSE_BASE_URL, so accept both to avoid silently missing traces.
+if os.environ.get("LANGFUSE_BASE_URL") and not os.environ.get("LANGFUSE_HOST"):
+    os.environ["LANGFUSE_HOST"] = os.environ["LANGFUSE_BASE_URL"]
+
 from agent.graph import AgentState, graph  # noqa: E402
 
 # Langfuse callback handler. If keys are set we initialize it; failures
