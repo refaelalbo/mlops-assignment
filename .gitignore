@@ -28,8 +28,9 @@ screenshots/*.jpg
 !screenshots/langfuse_tags.png
 !screenshots/langfuse_tags_eval_baseline.png
 !screenshots/grafana_eval_run.png
-!screenshots/grafana_before.png
-!screenshots/grafana_after.png
+!screenshots/phase5_grafana_before vs after tuning.png
+!screenshots/phase6_grafana_baseline_load.png
+!screenshots/phase6_grafana_baseline_load_after_tuning.png
 !screenshots/phase3_agent_revise.png
 
 # HF cache (if anyone runs locally)

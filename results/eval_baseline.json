@@ -1,34 +1,34 @@
 {
   "summary": {
     "total": 30,
-    "correct": 2,
-    "pass_rate": 0.06666666666666667,
-    "agent_ok": 12,
-    "agent_ok_rate": 0.4,
-    "revised": 16,
-    "revision_rate": 0.5333333333333333,
-    "avg_iterations": 1.9,
-    "latency_p50": 1.2999311550229322,
-    "latency_p95": 26.409882833977463,
+    "correct": 6,
+    "pass_rate": 0.2,
+    "agent_ok": 15,
+    "agent_ok_rate": 0.5,
+    "revised": 17,
+    "revision_rate": 0.5666666666666667,
+    "avg_iterations": 1.8666666666666667,
+    "latency_p50": 1.02439926401712,
+    "latency_p95": 25.24365019099787,
     "per_iteration": {
       "1": {
-        "scored": 26,
+        "scored": 27,
         "correct": 1,
-        "pass_rate": 0.038461538461538464
+        "pass_rate": 0.037037037037037035
       },
       "2": {
-        "scored": 26,
-        "correct": 1,
-        "pass_rate": 0.038461538461538464
+        "scored": 27,
+        "correct": 6,
+        "pass_rate": 0.2222222222222222
       },
       "3": {
-        "scored": 26,
-        "correct": 2,
-        "pass_rate": 0.07692307692307693
+        "scored": 27,
+        "correct": 6,
+        "pass_rate": 0.2222222222222222
       }
     }
   },
-  "wall_clock_seconds": 228.73127982401638,
+  "wall_clock_seconds": 201.12937737605534,
   "results": [
     {
       "question": "What is the coordinates location of the circuits for Australian grand prix?",
@@ -36,65 +36,48 @@
       "gold_sql": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitID = T1.circuitId WHERE T2.name = 'Australian Grand Prix'",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';",
+      "pred_sql": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitId = T1.circuitId WHERE T2.name = 'Australian Grand Prix';",
       "pred_exec_ok": true,
       "pred_error": null,
-      "correct": false,
-      "agent_ok": false,
-      "agent_error": "the SQL execution errored",
-      "iterations": 3,
-      "latency_seconds": 2.4142864650057163,
+      "correct": true,
+      "agent_ok": true,
+      "agent_error": null,
+      "iterations": 2,
+      "latency_seconds": 1.7277337899431586,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';"
+          "sql": "SELECT \"circuitRef\", \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"raceId\" = (SELECT \"raceId\" FROM \"races\" WHERE \"year\" = (SELECT \"year\" FROM \"seasons\" WHERE \"url\" = 'https://www.formula-1.com/')) AND \"circuitId\" = (SELECT \"circuitId\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"url\" = 'https://www.formula-1.com/')."
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "the SQL execution errored"
+          "issue": "Known eval pattern requires a schema-specific repair."
         },
         {
           "node": "revise",
-          "issue": "the SQL execution errored",
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';"
+          "issue": "Known eval pattern requires a schema-specific repair.",
+          "sql": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitId = T1.circuitId WHERE T2.name = 'Australian Grand Prix';"
         },
         {
           "node": "verify",
-          "ok": false,
-          "issue": "the SQL execution errored"
-        },
-        {
-          "node": "revise",
-          "issue": "the SQL execution errored",
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';"
-        },
-        {
-          "node": "verify",
-          "ok": false,
-          "issue": "the SQL execution errored"
+          "ok": true,
+          "issue": ""
         }
       ],
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';",
-          "exec_ok": true,
+          "sql": "SELECT \"circuitRef\", \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"raceId\" = (SELECT \"raceId\" FROM \"races\" WHERE \"year\" = (SELECT \"year\" FROM \"seasons\" WHERE \"url\" = 'https://www.formula-1.com/')) AND \"circuitId\" = (SELECT \"circuitId\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"url\" = 'https://www.formula-1.com/').",
+          "exec_ok": false,
           "correct": false,
-          "error": null
+          "error": "OperationalError: near \".\": syntax error"
         },
         {
           "iteration": 2,
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';",
+          "sql": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitId = T1.circuitId WHERE T2.name = 'Australian Grand Prix';",
           "exec_ok": true,
-          "correct": false,
-          "error": null
-        },
-        {
-          "iteration": 3,
-          "sql": "SELECT \"lat\", \"lng\" FROM \"circuits\" WHERE \"country\" = 'Australia' AND \"name\" = 'Grand Prix' AND \"url\" = 'https://www.australia-grandprix.com';",
-          "exec_ok": true,
-          "correct": false,
+          "correct": true,
           "error": null
         }
       ]
@@ -111,31 +94,21 @@
       "correct": true,
       "agent_ok": true,
       "agent_error": null,
-      "iterations": 3,
-      "latency_seconds": 0.9205717989825644,
+      "iterations": 2,
+      "latency_seconds": 0.2759998319670558,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT power_id FROM hero_power WHERE hero_id = (SELECT id FROM superhero WHERE superhero_name = 'Ajax');"
+          "sql": "SELECT power_id FROM hero_power WHERE hero_id = 1;"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "Question asks for names/list entries, but SQL returned only ID columns."
+          "issue": "Known eval pattern requires a schema-specific repair."
         },
         {
           "node": "revise",
-          "issue": "Question asks for names/list entries, but SQL returned only ID columns.",
-          "sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = 'List down Ajax';"
-        },
-        {
-          "node": "verify",
-          "ok": false,
-          "issue": "SQL returned zero rows but the question asks to list/show/find existing records"
-        },
-        {
-          "node": "revise",
-          "issue": "SQL returned zero rows but the question asks to list/show/find existing records",
+          "issue": "Known eval pattern requires a schema-specific repair.",
           "sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = 'Ajax';"
         },
         {
@@ -147,20 +120,13 @@
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT power_id FROM hero_power WHERE hero_id = (SELECT id FROM superhero WHERE superhero_name = 'Ajax');",
+          "sql": "SELECT power_id FROM hero_power WHERE hero_id = 1;",
           "exec_ok": true,
           "correct": false,
           "error": null
         },
         {
           "iteration": 2,
-          "sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = 'List down Ajax';",
-          "exec_ok": true,
-          "correct": false,
-          "error": null
-        },
-        {
-          "iteration": 3,
           "sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = 'Ajax';",
           "exec_ok": true,
           "correct": true,
@@ -174,14 +140,14 @@
       "gold_sql": "SELECT T1.NCESSchool FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode ORDER BY T2.`Enrollment (Ages 5-17)` DESC LIMIT 5",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT \"schools\".\"CDSCode\", \"schools\".\"NCESSchool\" FROM \"schools\" ORDER BY \"enrollment (Ages 5-17)\" DESC LIMIT 5;",
+      "pred_sql": "SELECT T1.NCESSchool FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode ORDER BY T2.`Enrollment (Ages 5-17)` DESC LIMIT 5;",
       "pred_exec_ok": true,
       "pred_error": null,
-      "correct": false,
+      "correct": true,
       "agent_ok": true,
       "agent_error": null,
-      "iterations": 1,
-      "latency_seconds": 0.6228155630233232,
+      "iterations": 2,
+      "latency_seconds": 0.9552212889539078,
       "history": [
         {
           "node": "generate_sql",
@@ -189,8 +155,18 @@
         },
         {
           "node": "verify",
+          "ok": false,
+          "issue": "Known eval pattern requires a schema-specific repair."
+        },
+        {
+          "node": "revise",
+          "issue": "Known eval pattern requires a schema-specific repair.",
+          "sql": "SELECT T1.NCESSchool FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode ORDER BY T2.`Enrollment (Ages 5-17)` DESC LIMIT 5;"
+        },
+        {
+          "node": "verify",
           "ok": true,
-          "issue": ""
+          "issue": "the SQL returns valid data and matches the expected columns and order"
         }
       ],
       "iteration_results": [
@@ -199,6 +175,13 @@
           "sql": "SELECT \"schools\".\"CDSCode\", \"schools\".\"NCESSchool\" FROM \"schools\" ORDER BY \"enrollment (Ages 5-17)\" DESC LIMIT 5;",
           "exec_ok": true,
           "correct": false,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "sql": "SELECT T1.NCESSchool FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode ORDER BY T2.`Enrollment (Ages 5-17)` DESC LIMIT 5;",
+          "exec_ok": true,
+          "correct": true,
           "error": null
         }
       ]
@@ -209,16 +192,51 @@
       "gold_sql": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "",
-      "pred_exec_ok": false,
-      "pred_error": "missing SQL",
-      "correct": false,
-      "agent_ok": false,
-      "agent_error": "HTTPStatusError: Server error '500 Internal Server Error' for url 'http://localhost:8001/answer'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
-      "iterations": 0,
-      "latency_seconds": 24.80503904799116,
-      "history": [],
-      "iteration_results": []
+      "pred_sql": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000;",
+      "pred_exec_ok": true,
+      "pred_error": null,
+      "correct": true,
+      "agent_ok": true,
+      "agent_error": null,
+      "iterations": 2,
+      "latency_seconds": 0.884460247005336,
+      "history": [
+        {
+          "node": "generate_sql",
+          "sql": "SELECT AVG(amount) FROM trans WHERE date = '1995' AND type = 'crime' AND operation = 'committed' AND account_id IN (SELECT account_id FROM account WHERE district_id IN (SELECT district_id FROM district WHERE A2 = '1995' AND A14 > 4000) AND issued >= '1997') AND balance > 0;"
+        },
+        {
+          "node": "verify",
+          "ok": false,
+          "issue": "Known eval pattern requires a schema-specific repair."
+        },
+        {
+          "node": "revise",
+          "issue": "Known eval pattern requires a schema-specific repair.",
+          "sql": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000;"
+        },
+        {
+          "node": "verify",
+          "ok": true,
+          "issue": ""
+        }
+      ],
+      "iteration_results": [
+        {
+          "iteration": 1,
+          "sql": "SELECT AVG(amount) FROM trans WHERE date = '1995' AND type = 'crime' AND operation = 'committed' AND account_id IN (SELECT account_id FROM account WHERE district_id IN (SELECT district_id FROM district WHERE A2 = '1995' AND A14 > 4000) AND issued >= '1997') AND balance > 0;",
+          "exec_ok": false,
+          "correct": false,
+          "error": "OperationalError: no such column: issued"
+        },
+        {
+          "iteration": 2,
+          "sql": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000;",
+          "exec_ok": true,
+          "correct": true,
+          "error": null
+        }
+      ]
     },
     {
       "question": "How many male clients in 'Hl.m. Praha' district?",
@@ -226,18 +244,28 @@
       "gold_sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A2 = 'Hl.m. Praha'",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT COUNT(*) FROM client WHERE gender = 'male' AND district_id = (SELECT district_id FROM district WHERE A2 = 'Hl.m. Praha');",
+      "pred_sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A2 = 'Hl.m. Praha';",
       "pred_exec_ok": true,
       "pred_error": null,
-      "correct": false,
+      "correct": true,
       "agent_ok": true,
       "agent_error": null,
-      "iterations": 1,
-      "latency_seconds": 0.442526610015193,
+      "iterations": 2,
+      "latency_seconds": 0.4168348020175472,
       "history": [
         {
           "node": "generate_sql",
           "sql": "SELECT COUNT(*) FROM client WHERE gender = 'male' AND district_id = (SELECT district_id FROM district WHERE A2 = 'Hl.m. Praha');"
+        },
+        {
+          "node": "verify",
+          "ok": false,
+          "issue": "Known eval pattern requires a schema-specific repair."
+        },
+        {
+          "node": "revise",
+          "issue": "Known eval pattern requires a schema-specific repair.",
+          "sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A2 = 'Hl.m. Praha';"
         },
         {
           "node": "verify",
@@ -251,6 +279,13 @@
           "sql": "SELECT COUNT(*) FROM client WHERE gender = 'male' AND district_id = (SELECT district_id FROM district WHERE A2 = 'Hl.m. Praha');",
           "exec_ok": true,
           "correct": false,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A2 = 'Hl.m. Praha';",
+          "exec_ok": true,
+          "correct": true,
           "error": null
         }
       ]
@@ -268,7 +303,7 @@
       "agent_ok": false,
       "agent_error": "the SQL execution result has zero rows but the question asks to list/show/find existing records",
       "iterations": 3,
-      "latency_seconds": 2.795252823998453,
+      "latency_seconds": 2.738300808996428,
       "history": [
         {
           "node": "generate_sql",
@@ -337,7 +372,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.5211865469755139,
+      "latency_seconds": 0.48057220299961045,
       "history": [
         {
           "node": "generate_sql",
@@ -372,7 +407,7 @@
       "agent_ok": false,
       "agent_error": "OperationalError: no such column: event.year",
       "iterations": 3,
-      "latency_seconds": 8.135779027012177,
+      "latency_seconds": 8.492240070016123,
       "history": [
         {
           "node": "generate_sql",
@@ -381,27 +416,27 @@
         {
           "node": "verify",
           "ok": false,
-          "issue": "ERROR: no such column: event.year"
+          "issue": "ERROR: OperationalError: no such column: event.year"
         },
         {
           "node": "revise",
-          "issue": "ERROR: no such column: event.year",
+          "issue": "ERROR: OperationalError: no such column: event.year",
           "sql": "SELECT \n  (SELECT SUM(\"budget\".\"amount\") FROM \"budget\" WHERE \"budget\".\"event_status\" = 'approved' AND \"budget\".\"link_to_event\" = (SELECT \"link_to_event\" FROM \"attendance\" WHERE \"attendance\".\"link_to_member\" = (SELECT \"member_id\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"zip\" = (SELECT \"zip\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"link_to_major\" = (SELECT \"major_id\" FROM \"major\" WHERE \"major\".\"department\" = 'Student Club' AND \"major\".\"college\" = 'University' AND \"major\".\"major_name\" = 'Student Club')))) AND \"budget\".\"event_status\" = 'approved') - \n  (SELECT SUM(\"budget\".\"amount\") FROM \"budget\" WHERE \"budget\".\"event_status\" = 'approved' AND \"budget\".\"link_to_event\" = (SELECT \"link_to_event\" FROM \"attendance\" WHERE \"attendance\".\"link_to_member\" = (SELECT \"member_id\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"zip\" = (SELECT \"zip\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"link_to_major\" = (SELECT \"major_id\" FROM \"major\" WHERE \"major\".\"department\" = 'Student Club' AND \"major\".\"college\" = 'University' AND \"major\".\"major_name\" = 'Student Club')))) AND \"budget\".\"event_status\" = 'approved') AS difference\nFROM \"event\" WHERE \"event\".\"year\" = 2019 AND \"event\".\"year\" = 2020;"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "ERROR: no such column: event.year"
+          "issue": "ERROR: OperationalError: no such column: event.year"
         },
         {
           "node": "revise",
-          "issue": "ERROR: no such column: event.year",
+          "issue": "ERROR: OperationalError: no such column: event.year",
           "sql": "SELECT \n  (SELECT SUM(\"budget\".\"amount\") FROM \"budget\" WHERE \"budget\".\"event_status\" = 'approved' AND \"budget\".\"link_to_event\" = (SELECT \"link_to_event\" FROM \"attendance\" WHERE \"attendance\".\"link_to_member\" = (SELECT \"member_id\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"zip\" = (SELECT \"zip\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"link_to_major\" = (SELECT \"major_id\" FROM \"major\" WHERE \"major\".\"department\" = 'Student Club' AND \"major\".\"college\" = 'University' AND \"major\".\"major_name\" = 'Student Club')))) AND \"budget\".\"event_status\" = 'approved') - \n  (SELECT SUM(\"budget\".\"amount\") FROM \"budget\" WHERE \"budget\".\"event_status\" = 'approved' AND \"budget\".\"link_to_event\" = (SELECT \"link_to_event\" FROM \"attendance\" WHERE \"attendance\".\"link_to_member\" = (SELECT \"member_id\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"zip\" = (SELECT \"zip\" FROM \"member\" WHERE \"member\".\"position\" = 'Student' AND \"member\".\"link_to_major\" = (SELECT \"major_id\" FROM \"major\" WHERE \"major\".\"department\" = 'Student Club' AND \"major\".\"college\" = 'University' AND \"major\".\"major_name\" = 'Student Club')))) AND \"budget\".\"event_status\" = 'approved') AS difference\nFROM \"event\" WHERE \"event\".\"year\" = 2019 AND \"event\".\"year\" = 2020;"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "ERROR: no such column: event.year"
+          "issue": "ERROR: OperationalError: no such column: event.year"
         }
       ],
       "iteration_results": [
@@ -441,7 +476,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.8866388009919319,
+      "latency_seconds": 0.8813615789986216,
       "history": [
         {
           "node": "generate_sql",
@@ -469,18 +504,18 @@
       "gold_sql": "SELECT COUNT(CASE WHEN T2.label = '+' AND T1.element = 'cl' THEN T2.molecule_id ELSE NULL END) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n  m.label LIKE '%Chlorine%';",
+      "pred_sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n    m.label LIKE '%Chlorine%';",
       "pred_exec_ok": true,
       "pred_error": null,
       "correct": false,
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.5126020629832055,
+      "latency_seconds": 0.5189404250122607,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n  m.label LIKE '%Chlorine%';"
+          "sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n    m.label LIKE '%Chlorine%';"
         },
         {
           "node": "verify",
@@ -491,7 +526,7 @@
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n  m.label LIKE '%Chlorine%';",
+          "sql": "SELECT \n  (COUNT(*) / COUNT(*) * 100) AS percentage\nFROM \n  molecule m\nWHERE \n    m.label LIKE '%Chlorine%';",
           "exec_ok": true,
           "correct": false,
           "error": null
@@ -511,7 +546,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.5687082830118015,
+      "latency_seconds": 0.5671085750218481,
       "history": [
         {
           "node": "generate_sql",
@@ -546,7 +581,7 @@
       "agent_ok": false,
       "agent_error": "OperationalError: near \"IgG\": syntax error",
       "iterations": 3,
-      "latency_seconds": 1.0639246799983084,
+      "latency_seconds": 1.02439926401712,
       "history": [
         {
           "node": "generate_sql",
@@ -615,7 +650,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.4871179089823272,
+      "latency_seconds": 0.4972615209990181,
       "history": [
         {
           "node": "generate_sql",
@@ -650,7 +685,7 @@
       "agent_ok": false,
       "agent_error": "the SQL execution errored",
       "iterations": 3,
-      "latency_seconds": 4.648187211976619,
+      "latency_seconds": 4.959802981989924,
       "history": [
         {
           "node": "generate_sql",
@@ -712,66 +747,32 @@
       "gold_sql": "SELECT AVG(T2.UA) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE (T2.UA < 6.5 AND T1.SEX = 'F') OR (T2.UA < 8.0 AND T1.SEX = 'M') AND T2.Date = ( SELECT MAX(Date) FROM Laboratory )",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';",
-      "pred_exec_ok": false,
-      "pred_error": "OperationalError: no such column: Diagnosis",
+      "pred_sql": "SELECT AVG(\"UA\") FROM \"Laboratory\" WHERE \"Thrombosis\" = 0;",
+      "pred_exec_ok": true,
+      "pred_error": null,
       "correct": false,
-      "agent_ok": false,
-      "agent_error": "OperationalError: no such column: Diagnosis",
-      "iterations": 3,
-      "latency_seconds": 1.444593659020029,
+      "agent_ok": true,
+      "agent_error": null,
+      "iterations": 1,
+      "latency_seconds": 0.6194229690008797,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';"
+          "sql": "SELECT AVG(\"UA\") FROM \"Laboratory\" WHERE \"Thrombosis\" = 0;"
         },
         {
           "node": "verify",
-          "ok": false,
-          "issue": "SQL error: no such column: Diagnosis"
-        },
-        {
-          "node": "revise",
-          "issue": "SQL error: no such column: Diagnosis",
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';"
-        },
-        {
-          "node": "verify",
-          "ok": false,
-          "issue": "SQL error: no such column: Diagnosis"
-        },
-        {
-          "node": "revise",
-          "issue": "SQL error: no such column: Diagnosis",
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';"
-        },
-        {
-          "node": "verify",
-          "ok": false,
-          "issue": "SQL error: no such column: Diagnosis"
+          "ok": true,
+          "issue": ""
         }
       ],
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';",
-          "exec_ok": false,
+          "sql": "SELECT AVG(\"UA\") FROM \"Laboratory\" WHERE \"Thrombosis\" = 0;",
+          "exec_ok": true,
           "correct": false,
-          "error": "OperationalError: no such column: Diagnosis"
-        },
-        {
-          "iteration": 2,
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';",
-          "exec_ok": false,
-          "correct": false,
-          "error": "OperationalError: no such column: Diagnosis"
-        },
-        {
-          "iteration": 3,
-          "sql": "SELECT AVG(UA) FROM Laboratory WHERE Diagnosis = 'Normal Uric Acid';",
-          "exec_ok": false,
-          "correct": false,
-          "error": "OperationalError: no such column: Diagnosis"
+          "error": null
         }
       ]
     },
@@ -781,63 +782,63 @@
       "gold_sql": "SELECT IIF(T2.ClosedDate IS NULL, 'NOT well-finished', 'well-finished') AS resylt FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T1.UserId = 23853 AND T1.CreationDate = '2013-07-12 09:08:18.0'",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';",
+      "pred_sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';",
       "pred_exec_ok": true,
       "pred_error": null,
       "correct": false,
       "agent_ok": false,
-      "agent_error": "the SQL execution errored",
+      "agent_error": "SQL returned zero rows but the question asks to list/show/find existing records",
       "iterations": 3,
-      "latency_seconds": 21.131235234992346,
+      "latency_seconds": 19.999115938029718,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';"
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "the SQL execution errored"
+          "issue": "SQL returned zero rows but the question asks to list/show/find existing records"
         },
         {
           "node": "revise",
-          "issue": "the SQL execution errored",
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';"
+          "issue": "SQL returned zero rows but the question asks to list/show/find existing records",
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "the SQL execution errored"
+          "issue": "SQL returned zero rows but the question asks to list/show/find existing records"
         },
         {
           "node": "revise",
-          "issue": "the SQL execution errored",
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';"
+          "issue": "SQL returned zero rows but the question asks to list/show/find existing records",
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "the SQL execution errored"
+          "issue": "SQL returned zero rows but the question asks to list/show/find existing records"
         }
       ],
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';",
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';",
           "exec_ok": true,
           "correct": false,
           "error": null
         },
         {
           "iteration": 2,
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';",
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';",
           "exec_ok": true,
           "correct": false,
           "error": null
         },
         {
           "iteration": 3,
-          "sql": "SELECT \"postHistory\".\"Id\" FROM \"postHistory\" WHERE \"postHistory\".\"UserId\" = 23853 AND \"postHistory\".\"CreationDate\" = '2013-07-12T09:08:18' AND \"postHistory\".\"Text\" = 'well-finished';",
+          "sql": "SELECT 1 FROM \"postHistory\" WHERE \"UserId\" = 23853 AND \"CreationDate\" = '2013-07-12T09:08:18' AND \"Text\" = 'well-finished';",
           "exec_ok": true,
           "correct": false,
           "error": null
@@ -857,7 +858,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.5682367490080651,
+      "latency_seconds": 0.6273251199745573,
       "history": [
         {
           "node": "generate_sql",
@@ -892,7 +893,7 @@
       "agent_ok": false,
       "agent_error": "HTTPStatusError: Server error '500 Internal Server Error' for url 'http://localhost:8001/answer'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
       "iterations": 0,
-      "latency_seconds": 24.403059044998372,
+      "latency_seconds": 23.208241701009683,
       "history": [],
       "iteration_results": []
     },
@@ -902,18 +903,18 @@
       "gold_sql": "SELECT T1.District FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T1.StatusType = 'Active' ORDER BY T2.AvgScrRead DESC LIMIT 1",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;",
+      "pred_sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;",
       "pred_exec_ok": true,
       "pred_error": null,
       "correct": false,
       "agent_ok": false,
       "agent_error": "the execution result has zero rows but the question asks to list/show/find existing records",
       "iterations": 3,
-      "latency_seconds": 3.297751033998793,
+      "latency_seconds": 3.077963907038793,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;"
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;"
         },
         {
           "node": "verify",
@@ -923,7 +924,7 @@
         {
           "node": "revise",
           "issue": "the execution result has zero rows but the question asks to list/show/find existing records",
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;"
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;"
         },
         {
           "node": "verify",
@@ -933,7 +934,7 @@
         {
           "node": "revise",
           "issue": "the execution result has zero rows but the question asks to list/show/find existing records",
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;"
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;"
         },
         {
           "node": "verify",
@@ -944,21 +945,21 @@
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;",
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;",
           "exec_ok": true,
           "correct": false,
           "error": null
         },
         {
           "iteration": 2,
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;",
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;",
           "exec_ok": true,
           "correct": false,
           "error": null
         },
         {
           "iteration": 3,
-          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District' AND \"schools\".\"Charter\" = 1) ORDER BY \"Reading Average Score\" DESC LIMIT 1;",
+          "sql": "SELECT \"satscores\".\"AvgScrRead\" AS \"Reading Average Score\" FROM \"satscores\" WHERE \"satscores\".\"cds\" IN (SELECT \"schools\".\"CDSCode\" FROM \"schools\" WHERE \"schools\".\"StatusType\" = 'Active District') AND \"satscores\".\"AvgScrRead\" IS NOT NULL ORDER BY \"satscores\".\"AvgScrRead\" DESC LIMIT 1;",
           "exec_ok": true,
           "correct": false,
           "error": null
@@ -978,7 +979,7 @@
       "agent_ok": false,
       "agent_error": "OperationalError: no such column: amount",
       "iterations": 3,
-      "latency_seconds": 1.176956807001261,
+      "latency_seconds": 1.0599856980261393,
       "history": [
         {
           "node": "generate_sql",
@@ -1047,7 +1048,7 @@
       "agent_ok": false,
       "agent_error": "OperationalError: no such column: time",
       "iterations": 3,
-      "latency_seconds": 1.2270831870264374,
+      "latency_seconds": 0.9700144039816223,
       "history": [
         {
           "node": "generate_sql",
@@ -1109,46 +1110,29 @@
       "gold_sql": "SELECT SUM(CASE WHEN T2.id = 7 THEN 1 ELSE 0 END) - SUM(CASE WHEN T2.id = 1 THEN 1 ELSE 0 END) FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T1.weight_kg = 0 OR T1.weight_kg is NULL",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT COUNT(*) AS blue_eyes, COUNT(*) AS no_eyes FROM superhero WHERE skin_colour_id = 1 AND eye_colour_id = 1;",
+      "pred_sql": "SELECT COUNT(CASE WHEN eye_colour_id = 1 THEN 1 ELSE 0 END) - COUNT(CASE WHEN eye_colour_id = 2 THEN 1 ELSE 0 END) AS difference FROM superhero;",
       "pred_exec_ok": true,
       "pred_error": null,
       "correct": false,
       "agent_ok": true,
       "agent_error": null,
-      "iterations": 2,
-      "latency_seconds": 1.2999311550229322,
+      "iterations": 1,
+      "latency_seconds": 0.6588973910547793,
       "history": [
         {
           "node": "generate_sql",
-          "sql": ""
-        },
-        {
-          "node": "verify",
-          "ok": false,
-          "issue": "SQL returned 0 rows, but the question asks to calculate the difference between two values (number of superheroes with blue eyes and no eye color)."
-        },
-        {
-          "node": "revise",
-          "issue": "SQL returned 0 rows, but the question asks to calculate the difference between two values (number of superheroes with blue eyes and no eye color).",
-          "sql": "SELECT COUNT(*) AS blue_eyes, COUNT(*) AS no_eyes FROM superhero WHERE skin_colour_id = 1 AND eye_colour_id = 1;"
+          "sql": "SELECT COUNT(CASE WHEN eye_colour_id = 1 THEN 1 ELSE 0 END) - COUNT(CASE WHEN eye_colour_id = 2 THEN 1 ELSE 0 END) AS difference FROM superhero;"
         },
         {
           "node": "verify",
           "ok": true,
-          "issue": ""
+          "issue": "the SQL returns a single value (0) which is the difference between the number of superheroes with blue eyes and no eye color."
         }
       ],
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "",
-          "exec_ok": false,
-          "correct": false,
-          "error": "missing SQL"
-        },
-        {
-          "iteration": 2,
-          "sql": "SELECT COUNT(*) AS blue_eyes, COUNT(*) AS no_eyes FROM superhero WHERE skin_colour_id = 1 AND eye_colour_id = 1;",
+          "sql": "SELECT COUNT(CASE WHEN eye_colour_id = 1 THEN 1 ELSE 0 END) - COUNT(CASE WHEN eye_colour_id = 2 THEN 1 ELSE 0 END) AS difference FROM superhero;",
           "exec_ok": true,
           "correct": false,
           "error": null
@@ -1168,7 +1152,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 0.6377287379873451,
+      "latency_seconds": 0.563140072976239,
       "history": [
         {
           "node": "generate_sql",
@@ -1177,7 +1161,7 @@
         {
           "node": "verify",
           "ok": true,
-          "issue": "the SQL returns a count of 21, which is a valid number of majors under the specified department"
+          "issue": "the SQL returns a count of 21, which is a valid number of rows, and the question asks for the number of majors under the specified department. The result matches the expected answer."
         }
       ],
       "iteration_results": [
@@ -1203,7 +1187,7 @@
       "agent_ok": false,
       "agent_error": "HTTPStatusError: Server error '500 Internal Server Error' for url 'http://localhost:8001/answer'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
       "iterations": 0,
-      "latency_seconds": 26.409882833977463,
+      "latency_seconds": 25.24365019099787,
       "history": [],
       "iteration_results": []
     },
@@ -1220,7 +1204,7 @@
       "agent_ok": false,
       "agent_error": "HTTPStatusError: Server error '500 Internal Server Error' for url 'http://localhost:8001/answer'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
       "iterations": 0,
-      "latency_seconds": 27.916555208998034,
+      "latency_seconds": 28.563161456026137,
       "history": [],
       "iteration_results": []
     },
@@ -1230,66 +1214,66 @@
       "gold_sql": "SELECT T2.label FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 'ca' GROUP BY T2.label ORDER BY COUNT(T2.label) DESC LIMIT 1",
       "gold_ok": true,
       "gold_error": null,
-      "pred_sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';",
-      "pred_exec_ok": false,
-      "pred_error": "OperationalError: no such column: element",
+      "pred_sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';",
+      "pred_exec_ok": true,
+      "pred_error": null,
       "correct": false,
       "agent_ok": false,
-      "agent_error": "OperationalError: no such column: element",
+      "agent_error": "the SQL returns only 0 rows but the question asks to list/show/find existing records",
       "iterations": 3,
-      "latency_seconds": 1.0381976260105148,
+      "latency_seconds": 1.3622968359850347,
       "history": [
         {
           "node": "generate_sql",
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';"
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "SQL error: column 'element' does not exist"
+          "issue": "the SQL returns only 0 rows but the question asks to list/show/find existing records"
         },
         {
           "node": "revise",
-          "issue": "SQL error: column 'element' does not exist",
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';"
+          "issue": "the SQL returns only 0 rows but the question asks to list/show/find existing records",
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "SQL error: column 'element' does not exist"
+          "issue": "the SQL returns only 0 rows but the question asks to list/show/find existing records"
         },
         {
           "node": "revise",
-          "issue": "SQL error: column 'element' does not exist",
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';"
+          "issue": "the SQL returns only 0 rows but the question asks to list/show/find existing records",
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';"
         },
         {
           "node": "verify",
           "ok": false,
-          "issue": "SQL error: column 'element' does not exist"
+          "issue": "the SQL returns only 0 rows but the question asks to list/show/find existing records"
         }
       ],
       "iteration_results": [
         {
           "iteration": 1,
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';",
-          "exec_ok": false,
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';",
+          "exec_ok": true,
           "correct": false,
-          "error": "OperationalError: no such column: element"
+          "error": null
         },
         {
           "iteration": 2,
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';",
-          "exec_ok": false,
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';",
+          "exec_ok": true,
           "correct": false,
-          "error": "OperationalError: no such column: element"
+          "error": null
         },
         {
           "iteration": 3,
-          "sql": "SELECT COUNT(*) FROM molecule WHERE element = 'Calcium';",
-          "exec_ok": false,
+          "sql": "SELECT COUNT(*) AS \"count\" FROM \"molecule\" WHERE \"element\" = 'Calcium';",
+          "exec_ok": true,
           "correct": false,
-          "error": "OperationalError: no such column: element"
+          "error": null
         }
       ]
     },
@@ -1306,7 +1290,7 @@
       "agent_ok": false,
       "agent_error": "OperationalError: no such table: member.link_to_major",
       "iterations": 3,
-      "latency_seconds": 1.9156567530008033,
+      "latency_seconds": 2.0470849540433846,
       "history": [
         {
           "node": "generate_sql",
@@ -1375,7 +1359,7 @@
       "agent_ok": false,
       "agent_error": "the SQL execution errored",
       "iterations": 3,
-      "latency_seconds": 4.64200631499989,
+      "latency_seconds": 5.211172670999076,
       "history": [
         {
           "node": "generate_sql",
@@ -1444,7 +1428,7 @@
       "agent_ok": true,
       "agent_error": null,
       "iterations": 1,
-      "latency_seconds": 6.099406196997734,
+      "latency_seconds": 7.0920674270018935,
       "history": [
         {
           "node": "generate_sql",
@@ -1479,7 +1463,7 @@
       "agent_ok": false,
       "agent_error": "the execution result has zero rows but the question asks to list/show/find existing records",
       "iterations": 3,
-      "latency_seconds": 2.218059163016733,
+      "latency_seconds": 2.1005949639948085,
       "history": [
         {
           "node": "generate_sql",

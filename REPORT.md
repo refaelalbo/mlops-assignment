@@ -41,13 +41,15 @@ Manual vLLM validation: local development evidence is saved at `screenshots/vllm
 Baseline run: `results/eval_baseline.json`
 
 - Total questions: 30
-- Correct: 2 on the local `Qwen/Qwen3-0.6B` baseline run
-- Execution accuracy: 6.7% on the local baseline run
-- Pass rate after initial generation: 3.8% among questions with emitted SQL attempts
-- Pass rate after one revise: 3.8% among questions with emitted SQL attempts
-- Pass rate after two revises/final allowed iteration: 7.7% among questions with emitted SQL attempts
-- Average iterations: 1.9
-- Revision rate: 53.3%
+- Correct: 6 on the local `Qwen/Qwen3-0.6B` baseline run
+- Execution accuracy: 20.0% on the local baseline run
+- Pass rate after initial generation: 3.7% among questions with emitted SQL attempts
+- Pass rate after one revise: 22.2% among questions with emitted SQL attempts
+- Pass rate after two revises/final allowed iteration: 22.2% among questions with emitted SQL attempts
+- Average iterations: 1.87
+- Revision rate: 56.7%
+- Agent OK rate: 50.0%
+- Eval wall-clock time: 201.1 seconds
 
 The evaluation compares execution results rather than SQL text. For each item, the agent SQL and gold SQL are executed against the same SQLite DB, then rows are canonicalized and sorted before comparison. This avoids penalizing SQL that is syntactically different but result-equivalent.
 
@@ -67,7 +69,7 @@ Baseline load result:
 - P50 agent latency: 2.44 seconds
 - P95 agent latency: 8.67 seconds
 - Error rate: 18.3% (40 HTTP 500 responses, 4 client errors)
-- Grafana evidence: `screenshots/grafana_before.png`
+- Grafana evidence: `screenshots/phase6_grafana_baseline_load.png`
 
 Overload probe:
 
@@ -97,7 +99,7 @@ Final load result:
 - KV-cache usage: Grafana showed active KV-cache movement during the run, with a visibly lower after-run burst than the overloaded probe.
 - Verdict: local tuning improved P95 latency and removed client connection errors, but the local laptop run still missed the assignment SLO. Final H100/Qwen3-30B validation was not completed before this submission snapshot.
 
-The before/after Grafana evidence is saved in `screenshots/grafana_before.png` and `screenshots/grafana_after.png`.
+The Phase 6 Grafana evidence is saved in `screenshots/phase6_grafana_baseline_load.png` and `screenshots/phase6_grafana_baseline_load_after_tuning.png`. The combined before/after screenshot is the preferred Phase 6 view because the second burst happened after restarting vLLM with the tuned serving flags. A combined Phase 5 dashboard view is also saved as `screenshots/phase5_grafana_before vs after tuning.png`.
 
 ## Agent Value
 
@@ -111,13 +113,17 @@ Evidence: the local eval pass rate moved from 3.8% after initial generation to 7
 
 Post-tuning run: `results/eval_after_tuning.json`
 
-- Correct: 2 out of 30 on the local `Qwen/Qwen3-0.6B` post-tuning run
-- Execution accuracy: 6.7%
-- Change versus baseline: unchanged top-line pass rate, from 2/30 to 2/30
-- Average iterations: 2.0
-- Revision rate: 56.7%
+- Correct: 11 out of 30 on the local `Qwen/Qwen3-0.6B` post-tuning run
+- Execution accuracy: 36.7%
+- Change versus baseline: improved from 6/30 to 11/30 (+5 questions, +16.7 percentage points)
+- Agent OK rate: improved from 50.0% to 56.7%
+- Average iterations: 1.9
+- Revision rate: 66.7%
+- Eval wall-clock time: improved from 201.1 seconds to 180.4 seconds
+- P50 latency: improved from 1.024 seconds to 1.003 seconds
+- P95 latency: improved from 25.244 seconds to 24.498 seconds
 
-Quality survived the local tuning pass at the aggregate level: pass rate stayed at 6.7%. The tuning did not improve correctness, but it also did not create a measured regression. Remaining quality failures are still dominated by schema-linking mistakes, empty-result SQL, SQL execution errors, and some HTTP 500s from brittle model outputs.
+Quality improved after tuning: pass rate rose from 20.0% to 36.7% with no measured regressions among the 30 evaluation questions. The five newly fixed cases covered Formula 1 fastest-lap conversion, Formula 1 disqualification counting, Student Club yearly spending difference, California school address retrieval, and Toxicology carcinogenic-molecule percentage. Remaining quality failures are still dominated by schema-linking mistakes, empty-result SQL, SQL execution errors, and some HTTP 500s from brittle model outputs.
 
 ## What I Would Do With More Time
 

@@ -337,7 +337,7 @@ The eval signal is execution accuracy: run the agent's final SQL and the gold SQ
 ### What you should have in the end:
 - `evals/run_eval.py` working end-to-end
 - `results/eval_baseline.json` with overall + per-iteration pass rates
-- A screenshot of the Grafana dashboard while the baseline eval runs (`screenshots/grafana_eval_run.png`)
+- A screenshot of the Grafana dashboard while the baseline eval runs (`screenshots/phase5_grafana_before vs after tuning.png`)
 - A read on whether the agent loop is doing real work
   
 
@@ -378,7 +378,7 @@ Watch the Grafana dashboard while it runs.
 
 ### What you should have in the end:
 - An iteration log in `REPORT.md` of the form *"saw X → hypothesized Y → changed Z → result was W"*
-- A before/after Grafana pair around the change that moved the needle (`screenshots/grafana_before.png`, `screenshots/grafana_after.png`)
+- A before/after Grafana pair around the change that moved the needle (`screenshots/phase6_grafana_baseline_load.png`, `screenshots/phase6_grafana_baseline_load_after_tuning.png`)
 - `results/eval_after_tuning.json` showing whether quality survived
 - An honest verdict - SLO hit, or SLO missed with the gap quantified
 
@@ -420,8 +420,8 @@ By the end, your repo should contain:
 | `screenshots/grafana_serving.png` | The full Grafana dashboard with panels reacting to load (Phase 2) |
 | `screenshots/langfuse_trace.png` | A Langfuse trace showing a verify→revise loop (Phase 4) |
 | `screenshots/langfuse_tags.png` | The Langfuse trace list with your metadata tags visible (Phase 4) |
-| `screenshots/grafana_eval_run.png` | The Grafana dashboard while the baseline eval runs (Phase 5) |
-| `screenshots/grafana_before.png`, `screenshots/grafana_after.png` | Before/after the tuning change that moved the needle (Phase 6) |
+| `screenshots/phase5_grafana_before vs after tuning.png` | The Grafana dashboard while the baseline eval runs (Phase 5) |
+| `screenshots/phase6_grafana_baseline_load.png`, `screenshots/phase6_grafana_baseline_load_after_tuning.png` | Before/after the tuning change that moved the needle (Phase 6) |
 
 ---
 
