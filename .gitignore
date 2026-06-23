@@ -22,6 +22,10 @@ screenshots/*.jpg
 !results/load_baseline_rps4.json
 !results/load_after_tuning.json
 !results/phase3_ajax_revise_example.json
+!results/eval_baseline_h100.json
+!results/eval_after_tuning_h100.json
+!results/load_baseline_h100.json
+!results/load_after_tuning_h100.json
 !screenshots/vllm_manual_query.png
 !screenshots/grafana_serving.png
 !screenshots/langfuse_trace.png
@@ -32,6 +36,12 @@ screenshots/*.jpg
 !screenshots/phase6_grafana_baseline_load.png
 !screenshots/phase6_grafana_baseline_load_after_tuning.png
 !screenshots/phase3_agent_revise.png
+!screenshots/phase6_h100_nebius_vm.png
+!screenshots/phase6_h100_nvidia_smi_vllm.png
+!screenshots/phase6_h100_eval_baseline_grafana.png
+!screenshots/phase6_h100_load_baseline_grafana.png
+!screenshots/phase6_h100_load_after_tuning_grafana.png
+!screenshots/phase6_h100_eval_after_tuning_grafana.png
 
 # HF cache (if anyone runs locally)
 .cache/

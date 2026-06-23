@@ -18,6 +18,10 @@ agent/prompts.py
 evals/run_eval.py
 results/eval_baseline.json
 results/eval_after_tuning.json
+results/eval_baseline_h100.json
+results/eval_after_tuning_h100.json
+results/load_baseline_h100.json
+results/load_after_tuning_h100.json
 screenshots/vllm_manual_query.png
 screenshots/grafana_serving.png
 screenshots/langfuse_trace.png
@@ -25,7 +29,12 @@ screenshots/langfuse_tags.png
 screenshots/phase5_grafana_before vs after tuning.png
 screenshots/phase6_grafana_baseline_load.png
 screenshots/phase6_grafana_baseline_load_after_tuning.png
-screenshots/phase5_grafana_before vs after tuning.png
+screenshots/phase6_h100_nebius_vm.png
+screenshots/phase6_h100_nvidia_smi_vllm.png
+screenshots/phase6_h100_eval_baseline_grafana.png
+screenshots/phase6_h100_load_baseline_grafana.png
+screenshots/phase6_h100_load_after_tuning_grafana.png
+screenshots/phase6_h100_eval_after_tuning_grafana.png
 results/phase3_ajax_revise_example.json
 screenshots/phase3_agent_revise.png
 ```
@@ -180,21 +189,25 @@ Placeholder values used in the Nebius SSH commands:
 - Replace `<key_name>` with your SSH private key filename, if you use a key.
 
 ```bash
-ssh -L 3000:localhost:3000 \
-    -L 9090:localhost:9090 \
-    -L 3001:localhost:3001 \
-    -L 8000:localhost:8000 \
-    -L 8001:localhost:8001 \
+ssh -i ~/.ssh/<key_name> \
+    -L 13000:localhost:3000 \
+    -L 13001:localhost:3001 \
+    -L 19090:localhost:9090 \
+    -L 18001:localhost:8001 \
     <user>@<vm-host>
 ```
 
 Expected browser URLs:
 
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- Langfuse: `http://localhost:3001`
-- vLLM OpenAI-compatible API docs: `http://localhost:8000/docs`
-- Agent API docs: `http://localhost:8001/docs`
+- Grafana: `http://localhost:13000`
+- Langfuse: `http://localhost:13001`
+- Prometheus: `http://localhost:19090`
+- Agent API docs: `http://localhost:18001/docs`
+
+The `13000`, `13001`, `19090`, and `18001` local ports were used because the
+standard local ports were already occupied on the laptop. Inside the VM, the
+services still run on their normal ports: Grafana `3000`, Langfuse `3001`,
+Prometheus `9090`, and the agent `8001`.
 
 ### Nebius H100 VM Setup for the Final Run
 
@@ -218,37 +231,164 @@ from `Qwen/Qwen3-30B-A3B-Instruct-2507` on H100. Local `Qwen/Qwen3-0.6B` runs
 are useful for development, but they do not represent the target hardware or
 model.
 
+
+
+- Image type: Public image
+  - OS: Ubuntu 24.04 LTS for NVIDIA GPUs (CUDA 13)
+  - Disk type: SSD
+  - Size: 200 GiB
+  - data encryption: on
+
+  200 GiB is recommended for this run. A 100 GiB disk became too tight after
+  Docker images, the Python environment, logs, and the Hugging Face model cache
+  were present, so the VM was resized before the final H100 run.
+
+- Change Public IP address
+  - Network: keep default-network
+    - Subnet: keep default subnet
+    - Primary private IP: keep Auto assign IP
+    - Public IP address: select Auto assign dynamic IP
+    - Hostname: either:
+        - Same as VM ID, simplest, or
+        - Custom, e.g. mlops-h100
+
+    - Username and SSH key: click Create
+        - username: your Linux username, e.g. refael
+        - paste your public SSH key, usually from local:
+
+          cat ~/.ssh/id_ed25519.pub
+          or:
+
+          cat ~/.ssh/id_rsa.pub
+
+    - Service account: not needed unless Nebius requires one for your setup
+    - Custom cloud-init: leave disabled
+
+  Most important: choose Auto assign dynamic IP and add your SSH key. Without those, you cannot connect or port-forward
+  dashboards.
+
+
 #### 2. SSH into the VM
 
-From your laptop/WSL:
-
-Use the same `<user>`, `<vm-host>`, and optional `<key_name>` placeholder values
-defined above in the port-forwarding section.
+Open a WSL terminal on the laptop. If an SSH key already exists, print the
+public key and copy the whole line:
 
 ```bash
-ssh <user>@<vm-host>
+cat ~/.ssh/id_ed25519.pub
 ```
 
-If using an SSH key:
+Example public key format:
+
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMrLQpNLM8s0jdIy9z70e9wbjSoRhd7wzTvNa6YEt2Qg refae-nebius
+```
+
+If the file does not exist, create a key in WSL:
 
 ```bash
-ssh -i ~/.ssh/<key_name> <user>@<vm-host>
+ssh-keygen -t ed25519 -C "refae-nebius"
+```
+
+Press Enter for the default path and press Enter twice for an empty passphrase
+if this is only a short-lived assignment VM. Then print the new public key:
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+In the Nebius VM form:
+
+- Username: `refae`
+- SSH key: paste the full `ssh-ed25519 ... refae-nebius` line
+- Credentials name: any label, for example `refae-nebius-key`
+- Public IP address: Auto assign dynamic IP
+
+After creating or starting the VM, Nebius shows the public IP. Connect from
+local WSL with:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 refae@<vm-public-ip>
 ```
 
 Why: run the heavy services directly on the VM. Do not try to serve the H100
 model from your local WSL terminal.
 
+Use these terminal roles during the final H100 run:
+
+```text
+Terminal A: local WSL port-forward tunnel. Keep it open for dashboards.
+Terminal B: Nebius VM vLLM server. Keep it open while the model serves.
+Terminal C: Nebius VM agent server. Keep it open while eval/load tests run.
+Terminal D: optional Nebius VM command terminal for eval/load commands.
+```
+
+Terminal A starts from local WSL, even though the prompt changes to
+`refae@mlops-h100` after SSH connects:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 \
+  -L 13000:localhost:3000 \
+  -L 13001:localhost:3001 \
+  -L 19090:localhost:9090 \
+  -L 18001:localhost:8001 \
+  refae@<vm-public-ip>
+```
+
+Leave Terminal A open. Open these URLs on the laptop:
+
+```text
+Grafana:    http://localhost:13000
+Langfuse:   http://localhost:13001
+Prometheus: http://localhost:19090
+Agent docs: http://localhost:18001/docs
+```
+
+Terminal B starts from local WSL with a normal SSH login, then runs vLLM on the
+VM:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 refae@<vm-public-ip>
+cd ~/mlops-assignment
+mkdir -p logs
+
+uv run vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --dtype bfloat16 \
+  --max-model-len 4096 \
+  --max-num-seqs 64 \
+  --max-num-batched-tokens 8192 \
+  --gpu-memory-utilization 0.90 \
+  --enable-prefix-caching 2>&1 | tee logs/vllm_h100_baseline.log
+```
+
+Leave Terminal B open after the model reaches 100% and the server reports that
+startup is complete.
+
+Terminal C starts from local WSL with another normal SSH login, then runs the
+agent on the VM:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 refae@<vm-public-ip>
+cd ~/mlops-assignment
+uv run uvicorn agent.server:app --host 0.0.0.0 --port 8001
+```
+
+Leave Terminal C open. After this, `http://localhost:18001/docs` should load
+from the laptop through Terminal A.
 #### 3. Install Basic Linux Tools
 
 On the Nebius VM:
 
 ```bash
 sudo apt update
-sudo apt install -y curl git jq zip unzip tmux htop
+sudo apt install -y curl git jq zip unzip tmux htop python3.12-dev build-essential
 ```
 
 Why: these tools are needed for setup, inspection, long-running terminal
-sessions, and packaging evidence.
+sessions, packaging evidence, and vLLM/Triton startup. The H100 run failed once
+with `fatal error: Python.h: No such file or directory`; installing
+`python3.12-dev` and `build-essential` fixed the missing Python headers.
 
 #### 4. Verify GPU and Driver Access
 
@@ -513,25 +653,26 @@ real measurements.
 From local WSL or PowerShell, keep this SSH session open:
 
 ```bash
-ssh -L 3000:localhost:3000 \
-    -L 9090:localhost:9090 \
-    -L 3001:localhost:3001 \
-    -L 8000:localhost:8000 \
-    -L 8001:localhost:8001 \
+ssh -i ~/.ssh/<key_name> \
+    -L 13000:localhost:3000 \
+    -L 13001:localhost:3001 \
+    -L 19090:localhost:9090 \
+    -L 18001:localhost:8001 \
     <user>@<vm-host>
 ```
 
 Why: services run on the Nebius VM, but your browser runs locally. Port
-forwarding maps the VM services to local browser URLs.
+forwarding maps the VM services to local browser URLs. The forwarded laptop
+ports here avoid conflicts with any local Grafana, Langfuse, or Prometheus
+already running on the laptop.
 
 Open locally:
 
 ```text
-Grafana:    http://localhost:3000
-Prometheus: http://localhost:9090
-Langfuse:   http://localhost:3001
-vLLM docs:  http://localhost:8000/docs
-Agent docs: http://localhost:8001/docs
+Grafana:    http://localhost:13000
+Langfuse:   http://localhost:13001
+Prometheus: http://localhost:19090
+Agent docs: http://localhost:18001/docs
 ```
 
 #### 15. Run the Assignment Phases on Nebius
@@ -547,18 +688,92 @@ curl -X POST http://localhost:8001/answer \
 # Phase 5 baseline eval
 uv run python evals/run_eval.py \
   --agent-url http://localhost:8001/answer \
-  --out results/eval_baseline.json
+  --out results/eval_baseline_h100.json
 
-# Phase 6 baseline and after-tuning loads
+# Phase 6 baseline load
 uv run python load_test/driver.py \
   --agent-url http://localhost:8001/answer \
-  --rps 10 \
-  --duration 300 \
+  --rps 2 \
+  --duration 120 \
   --out results/load_baseline_h100.json
 ```
 
 Why: final metrics should be produced on the VM, not from local WSL. Use the
 browser through port forwarding only to save Grafana and Langfuse screenshots.
+
+Actual final H100 sequence used:
+
+```bash
+# Baseline eval
+uv run python evals/run_eval.py \
+  --agent-url http://localhost:8001/answer \
+  --out results/eval_baseline_h100.json
+
+# Baseline load
+uv run python load_test/driver.py \
+  --agent-url http://localhost:8001/answer \
+  --rps 2 \
+  --duration 120 \
+  --out results/load_baseline_h100.json
+
+# Stop vLLM in Terminal B with Ctrl+C, then restart with reduced pressure:
+uv run vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --dtype bfloat16 \
+  --max-model-len 4096 \
+  --max-num-seqs 32 \
+  --max-num-batched-tokens 4096 \
+  --gpu-memory-utilization 0.90 \
+  --enable-prefix-caching 2>&1 | tee logs/vllm_h100_after_tuning.log
+
+# After-tuning load
+uv run python load_test/driver.py \
+  --agent-url http://localhost:8001/answer \
+  --rps 2 \
+  --duration 120 \
+  --out results/load_after_tuning_h100.json
+
+# After-tuning eval
+uv run python evals/run_eval.py \
+  --agent-url http://localhost:8001/answer \
+  --out results/eval_after_tuning_h100.json
+```
+
+If `results/load_after_tuning_h100.json` is too long to copy, print only the
+summary:
+
+```bash
+jq '.summary' results/load_after_tuning_h100.json
+```
+
+H100 screenshot names:
+
+```text
+screenshots/phase6_h100_nebius_vm.png
+screenshots/phase6_h100_nvidia_smi_vllm.png
+screenshots/phase6_h100_eval_baseline_grafana.png
+screenshots/phase6_h100_load_baseline_grafana.png
+screenshots/phase6_h100_load_after_tuning_grafana.png
+screenshots/phase6_h100_eval_after_tuning_grafana.png
+```
+
+Copy H100 JSONs back from the VM to local WSL by first entering the target
+folder, which avoids line wrapping breaking the `mlops-assignment` path:
+
+```bash
+cd /mnt/c/dev/study___nebius_acdemy/part_3_MLOps/MLOps_task2/mlops-assignment/results
+REMOTE='refae@195.242.29.217:~/mlops-assignment/results'
+
+scp -i ~/.ssh/id_ed25519 "$REMOTE/eval_baseline_h100.json" .
+scp -i ~/.ssh/id_ed25519 "$REMOTE/load_baseline_h100.json" .
+scp -i ~/.ssh/id_ed25519 "$REMOTE/load_after_tuning_h100.json" .
+scp -i ~/.ssh/id_ed25519 "$REMOTE/eval_after_tuning_h100.json" .
+ls -lh *h100*.json
+```
+
+Keep screenshots under `mlops-assignment/screenshots/`; keep metric JSON files
+under `mlops-assignment/results/`.
 
 #### 16. H100 Run Sanity Checks
 
@@ -592,7 +807,17 @@ docker compose down
 tmux ls
 ```
 
-Then stop or delete the H100 VM if you no longer need it.
+Then delete the H100 VM if you no longer need it:
+
+1. Go to **Compute -> Virtual machines**.
+2. Delete the H100 VM.
+3. If Nebius offers **Delete boot disk**, select it.
+4. If the dialog cannot delete the boot disk, delete the VM first, then go to
+   **Storage -> Disks** and delete the now-unattached boot disk.
+5. Verify **Standalone VMs: 0** and **Disks: No disks**.
+
+Why: stopping/deleting the VM stops H100 compute billing. Deleting the boot disk
+also stops storage billing for the 200 GiB disk.
 
 Why: stopping terminal processes is not the same as releasing cloud GPU
 capacity. GPU VMs can continue billing while allocated.
@@ -1590,6 +1815,20 @@ uv run vllm serve Qwen/Qwen3-0.6B \
   --enable-prefix-caching
 ```
 
+```bash
+uv run vllm serve Qwen/Qwen3-0.6B \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --dtype bfloat16 \
+  --max-model-len 4096 \
+  --max-num-seqs 64 \
+  --max-num-batched-tokens 8192 \
+  --gpu-memory-utilization 0.75 \
+  --enable-prefix-caching
+```
+
+
+
 If the 6 GB GPU reports insufficient free memory, lower
 `--gpu-memory-utilization`, `--max-num-seqs`, or `--max-model-len`.
 
@@ -2275,8 +2514,8 @@ Interpretation:
 - P95 improved from 8.67s to 6.73s.
 - Client connection errors improved from 4 to 0.
 - Quality improved from 6/30 to 11/30, with no measured regressions.
-- The local run still missed the SLO, so the report should be honest that final
-  H100 validation was not completed in this snapshot.
+- The local run still missed the SLO, so final grading should use the H100 JSONs
+  and H100 screenshots once available.
 
 Save:
 
@@ -2285,26 +2524,33 @@ results/load_baseline.json
 results/load_baseline_rps4.json
 results/load_after_tuning.json
 results/eval_after_tuning.json
+results/eval_baseline_h100.json
+results/eval_after_tuning_h100.json
+results/load_baseline_h100.json
+results/load_after_tuning_h100.json
 screenshots/phase6_grafana_baseline_load.png
 screenshots/phase6_grafana_baseline_load_after_tuning.png
 screenshots/phase5_grafana_before vs after tuning.png
+screenshots/phase6_h100_nebius_vm.png
+screenshots/phase6_h100_nvidia_smi_vllm.png
+screenshots/phase6_h100_eval_baseline_grafana.png
+screenshots/phase6_h100_load_baseline_grafana.png
+screenshots/phase6_h100_load_after_tuning_grafana.png
+screenshots/phase6_h100_eval_after_tuning_grafana.png
 ```
 
 ## Report Notes
 
-In `REPORT.md`, use final H100 values if the H100 run is available. If the
-submission uses the local fallback evidence, be explicit that the values are
-from `Qwen/Qwen3-0.6B` on the RTX 3060 laptop GPU:
+In `REPORT.md`, use the final H100 values. Keep the local `Qwen/Qwen3-0.6B`
+numbers only as development evidence:
 
 ```text
-Baseline load P50 agent latency: 2.44s
-Baseline load P95 agent latency: 8.67s
-After-tuning P50 agent latency: 2.14s
-After-tuning P95 agent latency: 6.73s
-Eval pass rate before tuning: 20.0%
-Eval pass rate after tuning: 36.7%
-Eval correctness before/after tuning: 6/30 -> 11/30
-H100 final run: not completed in the current submission snapshot
+H100 baseline eval: 17/30 correct, 56.7%, P95 2.250s
+H100 after-tuning eval: 16/30 correct, 53.3%, P95 2.239s
+H100 baseline load: 206/240 OK, P50 0.870s, P95 4.894s, 0 timeouts
+H100 after-tuning load: 207/240 OK, P50 0.904s, P95 5.851s, 0 timeouts
+H100 tuning verdict: stability-oriented; client errors fell 4 -> 3, but P95
+load latency regressed, so this was not a net latency improvement.
 ```
 
 Agent value paragraph should cite per-iteration pass rate and at least one

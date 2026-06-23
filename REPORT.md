@@ -1,20 +1,20 @@
 # LLM Inference + Observability Report
 
-> Submission note: the final H100 run with `Qwen/Qwen3-30B-A3B-Instruct-2507`
-> was not completed before this snapshot. The implementation, dashboard,
-> tracing, eval harness, and SLO loop were validated locally with
-> `Qwen/Qwen3-0.6B` on an RTX 3060 laptop GPU.
-
 ## Serving Configuration
 
-Target H100 model: `Qwen/Qwen3-30B-A3B-Instruct-2507`
+Final run target:
 
-Local validation model: `Qwen/Qwen3-0.6B`
+- Cloud: Nebius H100 VM
+- GPU: NVIDIA H100 80GB HBM3
+- Model: `Qwen/Qwen3-30B-A3B-Instruct-2507`
+- Evidence:
+  - `screenshots/phase6_h100_nebius_vm.png`
+  - `screenshots/phase6_h100_nvidia_smi_vllm.png`
 
-Local vLLM command used for development validation:
+Baseline H100 vLLM command:
 
 ```bash
-uv run vllm serve Qwen/Qwen3-0.6B \
+uv run vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 \
   --host 0.0.0.0 \
   --port 8000 \
   --dtype bfloat16 \
@@ -25,110 +25,126 @@ uv run vllm serve Qwen/Qwen3-0.6B \
   --enable-prefix-caching
 ```
 
+Tuned H100 vLLM command:
+
+```bash
+uv run vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --dtype bfloat16 \
+  --max-model-len 4096 \
+  --max-num-seqs 32 \
+  --max-num-batched-tokens 4096 \
+  --gpu-memory-utilization 0.90 \
+  --enable-prefix-caching
+```
+
 Configuration rationale:
 
-- `--dtype bfloat16`: chosen for GPU-native BF16 serving and to match the intended H100 deployment dtype.
-- `--max-model-len 4096`: covers the 1.5K-3K token prompt shape plus short SQL output while preserving KV-cache capacity.
-- `--max-num-seqs 64`: baseline concurrency setting used to expose queueing behavior during local load tests.
-- `--max-num-batched-tokens 8192`: keeps prompt prefill batching enabled for the repeated schema-heavy workload.
-- `--gpu-memory-utilization 0.90`: maximizes local KV-cache capacity; on the 6 GB laptop GPU this required checking free memory before startup.
-- `--enable-prefix-caching`: schema and instruction prefixes repeat heavily across the eval/load-test workload.
+- `--dtype bfloat16`: H100 supports BF16 efficiently and it matches the intended target deployment dtype.
+- `--max-model-len 4096`: covers the schema-heavy BIRD prompts and short SQL outputs while preserving KV-cache headroom.
+- `--max-num-seqs` and `--max-num-batched-tokens`: baseline used `64` / `8192`; after tuning used `32` / `4096` to reduce serving pressure and queueing risk.
+- `--gpu-memory-utilization 0.90`: uses most H100 memory while leaving a small reserve for runtime overhead.
+- `--enable-prefix-caching`: the workload repeatedly sends similar system, schema, and instruction prefixes.
 
-Manual vLLM validation: local development evidence is saved at `screenshots/vllm_manual_query.png`. Final H100 validation remains pending because the final H100 run was not completed before this submission snapshot.
+The local development model was `Qwen/Qwen3-0.6B` on an RTX 3060 laptop GPU. Those local results are kept as development evidence, but the final reported metrics below come from the Nebius H100 run.
 
 ## Baseline Eval Results
 
-Baseline run: `results/eval_baseline.json`
+Baseline H100 run: `results/eval_baseline_h100.json`
 
 - Total questions: 30
-- Correct: 6 on the local `Qwen/Qwen3-0.6B` baseline run
-- Execution accuracy: 20.0% on the local baseline run
-- Pass rate after initial generation: 3.7% among questions with emitted SQL attempts
-- Pass rate after one revise: 22.2% among questions with emitted SQL attempts
-- Pass rate after two revises/final allowed iteration: 22.2% among questions with emitted SQL attempts
-- Average iterations: 1.87
-- Revision rate: 56.7%
-- Agent OK rate: 50.0%
-- Eval wall-clock time: 201.1 seconds
+- Correct: 17
+- Execution accuracy: 56.7%
+- Agent OK rate: 76.7%
+- Revision rate: 60.0%
+- Average iterations: 1.83
+- P50 latency: 0.600 seconds
+- P95 latency: 2.250 seconds
+- Per-iteration pass rate:
+  - Iteration 1: 10/30, 33.3%
+  - Iteration 2: 17/30, 56.7%
+  - Iteration 3: 17/30, 56.7%
+- Evidence: `screenshots/phase6_h100_eval_baseline_grafana.png`
 
 The evaluation compares execution results rather than SQL text. For each item, the agent SQL and gold SQL are executed against the same SQLite DB, then rows are canonicalized and sorted before comparison. This avoids penalizing SQL that is syntactically different but result-equivalent.
-
-Baseline observation: this local 0.6B run is useful for validating the evaluation harness and tracing, but it is not representative of the final H100 target model. The most common failures were wrong schema linking, repeated invalid revisions, zero-row answers, and several agent HTTP 500s from model outputs that still need hardening. The Ajax superpowers example is a positive case where the verifier/revise loop improved the answer from an ID-only query to the correct `power_name` join.
 
 ## SLO and Tuning
 
 Target SLO: P95 end-to-end agent latency under 5 seconds at 10+ RPS over a 5-minute window.
 
-Baseline load result:
+The final measured H100 load tests used the assignment driver at 2 RPS for 120 seconds. The stack did not reach the 10+ RPS SLO target in this run, so the SLO is not claimed as met.
 
-- Run: `results/load_baseline.json`
+Baseline H100 load:
+
+- Run: `results/load_baseline_h100.json`
 - Requested RPS: 2.0
 - Achieved RPS: 1.33 over 180.0 seconds wall-clock including request drain
 - Total requests: 240
-- Successful requests: 196
-- P50 agent latency: 2.44 seconds
-- P95 agent latency: 8.67 seconds
-- Error rate: 18.3% (40 HTTP 500 responses, 4 client errors)
-- Grafana evidence: `screenshots/phase6_grafana_baseline_load.png`
+- Successful requests: 206
+- Timeouts: 0
+- HTTP errors: 30
+- Client errors: 4
+- P50 agent latency: 0.870 seconds
+- P95 agent latency: 4.894 seconds
+- P99 agent latency: 7.879 seconds
+- Max latency: 8.908 seconds
+- Grafana evidence: `screenshots/phase6_h100_load_baseline_grafana.png`
 
-Overload probe:
+Tuned H100 load:
 
-- Run: `results/load_baseline_rps4.json`
-- Requested RPS: 4.0
-- Achieved RPS: 2.67 over 180.0 seconds wall-clock including request drain
-- Successful requests: 282 out of 480
-- P95 agent latency: 27.86 seconds
-- Failure mode: the local 6 GB GPU stack showed backpressure through higher request latency, timeouts, HTTP 500s, and client errors.
+- Run: `results/load_after_tuning_h100.json`
+- Requested RPS: 2.0
+- Achieved RPS: 1.33 over 180.0 seconds wall-clock including request drain
+- Total requests: 240
+- Successful requests: 207
+- Timeouts: 0
+- HTTP errors: 30
+- Client errors: 3
+- P50 agent latency: 0.904 seconds
+- P95 agent latency: 5.851 seconds
+- P99 agent latency: 9.083 seconds
+- Max latency: 10.308 seconds
+- Grafana evidence: `screenshots/phase6_h100_load_after_tuning_grafana.png`
 
 Iteration log:
 
-1. Saw P95 latency at 8.67 seconds even at 2 RPS -> hypothesized the local model server was queueing too aggressively for the RTX 3060 laptop GPU -> reduced serving pressure and reran the same 2 RPS load -> P95 improved to 6.73 seconds.
-2. Saw the 4 RPS probe degrade to 27.86 seconds P95 with many client errors -> treated this as above local capacity rather than a useful target for this hardware -> kept the final local comparison at the same 2 RPS as baseline.
-3. Saw the first post-tuning attempt produce no Grafana traffic -> checked the result JSON and found every request failed with `Cannot connect to host localhost:8001` -> restarted the Agent API and reran the test to produce valid after-tuning evidence.
+1. The baseline H100 run used `max_num_seqs=64` and `max_num_batched_tokens=8192`.
+2. The tuning pass restarted vLLM with `max_num_seqs=32` and `max_num_batched_tokens=4096` to reduce concurrent serving pressure.
+3. The tuned load kept zero timeouts and slightly reduced client errors from 4 to 3, but P95 latency regressed from 4.894s to 5.851s.
 
-Final load result:
-
-- Run: `results/load_after_tuning.json`
-- Requested RPS: 2.0
-- Achieved RPS: 1.47 over 162.8 seconds wall-clock including request drain
-- Total requests: 240
-- Successful requests: 200
-- P50 agent latency: 2.14 seconds
-- P95 agent latency: 6.73 seconds
-- Error rate: 16.7% (40 HTTP 500 responses, 0 client errors)
-- KV-cache usage: Grafana showed active KV-cache movement during the run, with a visibly lower after-run burst than the overloaded probe.
-- Verdict: local tuning improved P95 latency and removed client connection errors, but the local laptop run still missed the assignment SLO. Final H100/Qwen3-30B validation was not completed before this submission snapshot.
-
-The Phase 6 Grafana evidence is saved in `screenshots/phase6_grafana_baseline_load.png` and `screenshots/phase6_grafana_baseline_load_after_tuning.png`. The combined before/after screenshot is the preferred Phase 6 view because the second burst happened after restarting vLLM with the tuned serving flags. A combined Phase 5 dashboard view is also saved as `screenshots/phase5_grafana_before vs after tuning.png`.
+Verdict: the H100 tuning was stability-oriented, not a latency win. It slightly reduced client errors but did not improve P95 latency, and the final measured run does not meet the stated 10+ RPS SLO.
 
 ## Agent Value
 
-The agent used a generate -> execute -> verify -> revise loop capped at 3 total SQL attempts. The loop helped on at least one manually inspected Phase 3 case. In the local 0.6B baseline eval, final pass rate improved from 3.8% after the first emitted attempt to 7.7% after the final allowed iteration among questions with emitted SQL attempts.
+The agent used a generate -> execute -> verify -> revise loop capped at 3 total SQL attempts.
 
-Phase 3 manual evidence shows the loop adding real value on the question "List down Ajax's superpowers." The initial SQL executed but returned only `power_id` values, which did not answer the request for superpower names. The verifier rejected that result, the revise step attempted a joined query, the verifier rejected a zero-row revision, and the final revision produced a correct join from `superhero` to `hero_power` to `superpower`, selecting `power_name`. The final answer returned `Agility`, `Super Strength`, `Super Speed`, `Heat Generation`, and `Power Suit` with `iterations=3` and `ok=true`. Raw evidence is saved in `results/phase3_ajax_revise_example.json`; terminal evidence is saved in `screenshots/phase3_agent_revise.png`.
+On the H100 baseline eval, pass rate improved from 33.3% after the first attempt to 56.7% after the revision loop. On the H100 post-tuning eval, pass rate improved from 30.0% after the first attempt to 53.3% after revision. This shows the verifier/revise loop adds measurable value beyond a single generation pass.
 
-Evidence: the local eval pass rate moved from 3.8% after initial generation to 7.7% after the final allowed iteration among questions with emitted SQL attempts. The revise step was most useful for the Ajax superpowers case, where it corrected an ID-only answer into a `power_name` join. Langfuse traces show the expected waterfall with `generate_sql`, `verify`, and when needed `revise`; screenshots are saved as `screenshots/langfuse_trace.png` and `screenshots/langfuse_tags.png`.
+Manual Phase 3 evidence also shows the loop adding real value on the question "List down Ajax's superpowers." The initial SQL executed but returned only `power_id` values, which did not answer the request for superpower names. The verifier rejected that result, the revise step attempted a joined query, and the final revision produced a correct join from `superhero` to `hero_power` to `superpower`, selecting `power_name`. Raw evidence is saved in `results/phase3_ajax_revise_example.json`; terminal evidence is saved in `screenshots/phase3_agent_revise.png`.
+
+Langfuse traces show the expected waterfall with `generate_sql`, `verify`, and when needed `revise`; screenshots are saved as `screenshots/langfuse_trace.png`, `screenshots/langfuse_tags.png`, and `screenshots/langfuse_tags_eval_baseline.png`.
 
 ## Quality After Tuning
 
-Post-tuning run: `results/eval_after_tuning.json`
+Post-tuning H100 eval: `results/eval_after_tuning_h100.json`
 
-- Correct: 11 out of 30 on the local `Qwen/Qwen3-0.6B` post-tuning run
-- Execution accuracy: 36.7%
-- Change versus baseline: improved from 6/30 to 11/30 (+5 questions, +16.7 percentage points)
-- Agent OK rate: improved from 50.0% to 56.7%
-- Average iterations: 1.9
-- Revision rate: 66.7%
-- Eval wall-clock time: improved from 201.1 seconds to 180.4 seconds
-- P50 latency: improved from 1.024 seconds to 1.003 seconds
-- P95 latency: improved from 25.244 seconds to 24.498 seconds
+- Correct: 16 out of 30
+- Execution accuracy: 53.3%
+- Change versus H100 baseline: 17/30 -> 16/30, a 1-question regression
+- Agent OK rate: 76.7%, unchanged from baseline
+- Average iterations: 1.83, unchanged from baseline
+- Revision rate: 60.0%, unchanged from baseline
+- P50 latency: 0.587 seconds, slightly better than baseline 0.600 seconds
+- P95 latency: 2.239 seconds, slightly better than baseline 2.250 seconds
+- Evidence: `screenshots/phase6_h100_eval_after_tuning_grafana.png`
 
-Quality improved after tuning: pass rate rose from 20.0% to 36.7% with no measured regressions among the 30 evaluation questions. The five newly fixed cases covered Formula 1 fastest-lap conversion, Formula 1 disqualification counting, Student Club yearly spending difference, California school address retrieval, and Toxicology carcinogenic-molecule percentage. Remaining quality failures are still dominated by schema-linking mistakes, empty-result SQL, SQL execution errors, and some HTTP 500s from brittle model outputs.
+Quality did not improve after the reduced-pressure tuning: execution accuracy moved from 56.7% to 53.3%. The latency change during eval was negligible and slightly favorable, but the load-test P95 regressed. The final interpretation is that this tuning was not a net improvement for the H100 configuration; it is included because the assignment asks for a measured before/after loop and because it exposed the stability/latency tradeoff clearly.
 
 ## What I Would Do With More Time
 
-1. Add schema-linking before SQL generation so the model receives only the relevant tables and columns instead of the full schema context.
+1. Add schema-linking before SQL generation so the model receives only relevant tables and columns instead of the full schema context.
 2. Add structured JSON output constraints for verifier decisions, with strict parsing and retry on invalid verifier output.
 3. Split eval results by failure type: SQL syntax error, wrong table/column, wrong aggregation, wrong filter, empty result, and timeout.
-4. Add prompt-prefix cache hit-rate monitoring to prove whether prefix caching is actually helping the repeated schema/instruction workload.
-5. Try speculative decoding only if decode latency, not queueing or prefill, is the measured bottleneck.
+4. Tune the H100 serving parameters around measured queueing and GPU utilization rather than only reducing concurrency.
+5. Run a true 10+ RPS H100 test after hardening HTTP 500 failure paths in the agent.

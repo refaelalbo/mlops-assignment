@@ -5,6 +5,16 @@ company database. The assignment version is a useful prototype, but a company
 deployment needs stronger guardrails before it can safely answer free-text
 questions with SQL.
 
+The final assignment rerun used a Nebius H100 VM with
+`Qwen/Qwen3-30B-A3B-Instruct-2507`. That run is useful for company planning
+because it shows both the value and the limits of the prototype:
+
+- The verifier/revision loop improved SQL quality.
+- The service produced observable traces and Grafana metrics.
+- H100 made the larger model feasible.
+- The measured run still did not satisfy the stated 10+ RPS SLO.
+- The tuning change reduced serving pressure but was not a net latency win.
+
 The recommended production flow is:
 
 ```text
@@ -23,6 +33,114 @@ user question
 Never let an LLM directly execute arbitrary SQL against a production database.
 The model should propose SQL. Your application should validate, limit, execute,
 log, and explain it.
+
+## What The Assignment Proved
+
+The assignment was not only a model-serving exercise. It proved an end-to-end
+pattern:
+
+```text
+question
+-> schema context
+-> LLM SQL generation
+-> SQL execution
+-> verifier decision
+-> optional SQL revision
+-> final answer
+-> traces, metrics, and result JSONs
+```
+
+The most important positive result was the revision loop. On the final H100
+baseline evaluation, the first generated SQL attempt solved 10 out of 30
+questions. After verification and revision, the final score reached 17 out of
+30. That is a meaningful improvement and supports using a verifier/reviser in a
+company version.
+
+The most important negative result was the SLO. The target was P95 agent latency
+under 5 seconds at 10+ RPS over a 5-minute window. The final H100 load tests
+used 2 RPS for 120 seconds and achieved about 1.33 RPS after request drain.
+Therefore the company version should not assume that a bigger GPU alone solves
+production throughput.
+
+Final H100 metrics:
+
+| Run | Result |
+|---|---|
+| Baseline eval | 17/30 correct, 56.7%, P95 2.250s |
+| After-tuning eval | 16/30 correct, 53.3%, P95 2.239s |
+| Baseline load | 206/240 OK, 0 timeouts, P95 4.894s |
+| After-tuning load | 207/240 OK, 0 timeouts, P95 5.851s |
+
+The tuning pass reduced `max_num_seqs` from 64 to 32 and
+`max_num_batched_tokens` from 8192 to 4096. It slightly reduced client errors
+from 4 to 3, but P95 load latency regressed. In a company, this should be
+reported as a stability-oriented experiment, not as a performance win.
+
+## Production Architecture Based On The Assignment
+
+A company version should keep the assignment's core agent loop, but split it
+into explicit services and control points:
+
+```text
+User / BI tool
+-> API gateway and auth
+-> Text-to-SQL service
+-> schema retriever
+-> LLM gateway / vLLM cluster
+-> SQL safety validator
+-> dry-run / query planner
+-> read-only warehouse executor
+-> verifier and answer composer
+-> audit log, Langfuse traces, Prometheus metrics
+```
+
+The assignment ran as one local FastAPI service plus local Docker observability
+services. That is fine for a prototype. In production, the sensitive parts
+should be separated:
+
+- Authentication and authorization should happen before schema retrieval.
+- Schema retrieval should only return objects the user is allowed to query.
+- SQL validation should run before database execution.
+- Database execution should use a read-only role on a warehouse or replica.
+- Traces and metrics should be retained for audit and debugging.
+
+## How The H100 Result Changes Company Planning
+
+The H100 run changes the planning assumptions in three ways.
+
+First, model size matters. The local `Qwen/Qwen3-0.6B` run was useful for
+development, but final planning should use the H100 `Qwen/Qwen3-30B-A3B`
+results because they better represent the intended deployment model.
+
+Second, serving capacity still needs real load testing. The H100 was powerful
+enough to host the model, but the measured agent service did not reach the
+assignment SLO. A production rollout needs load testing at the actual target:
+10+ RPS, 5 minutes or longer, with representative questions and schemas.
+
+Third, tuning must be judged by measured tradeoffs. Reducing concurrency reduced
+pressure and slightly reduced client errors, but worsened load P95. A company
+rollout should compare multiple tuning profiles, not stop after one change.
+
+Recommended next H100 tuning matrix:
+
+```text
+Profile A: max_num_seqs=64, max_num_batched_tokens=8192
+Profile B: max_num_seqs=32, max_num_batched_tokens=4096
+Profile C: max_num_seqs=48, max_num_batched_tokens=8192
+Profile D: max_num_seqs=32, max_num_batched_tokens=8192
+Profile E: max_num_seqs=16, max_num_batched_tokens=4096
+```
+
+Each profile should be tested with:
+
+```text
+quality eval
+2 RPS smoke load
+10 RPS SLO load
+error breakdown
+Grafana screenshot
+Langfuse trace sampling
+```
 
 ## 1. Use Read-Only Access
 
@@ -139,6 +257,21 @@ Production improvement:
 Use a parser such as `sqlglot` to inspect statement type, tables, columns, and
 query structure instead of relying only on string checks.
 
+Company addition:
+
+The validator should return structured reasons. That makes it possible to report
+blocked queries clearly and measure which guardrails are triggered most often.
+
+Example:
+
+```json
+{
+  "allowed": false,
+  "reason": "blocked_table",
+  "detail": "table payroll.employee_salary is not available to this user"
+}
+```
+
 ## 3. Use Schema Retrieval Instead of Sending the Full Schema
 
 What to do:
@@ -197,6 +330,12 @@ If the question cannot be answered from this schema, say so.
 Do not invent table names or column names.
 ```
 
+Assignment lesson:
+
+The final report explicitly listed schema-linking as the first improvement to
+make with more time. This is the highest-value company upgrade because it can
+improve accuracy, reduce prompt size, and reduce latency at the same time.
+
 ## 4. Include Relationships and Primary Keys
 
 What to do:
@@ -246,6 +385,14 @@ Do not infer joins from similarly named columns unless listed.
 Respect table grain to avoid duplicate counting.
 ```
 
+Assignment lesson:
+
+The Phase 3 Ajax example showed why names and relationships matter. The first
+query returned IDs, but the question needed superpower names. The revised query
+used the correct join path and selected the human-readable column. In a company
+schema, the same issue appears constantly with customer IDs, account IDs,
+product IDs, and employee IDs.
+
 ## 5. Add Query Limits, Timeouts, and Cost Controls
 
 What to do:
@@ -292,6 +439,23 @@ If query returns raw rows and has no LIMIT, add LIMIT 100.
 If query is COUNT/SUM/AVG/GROUP BY, do not add LIMIT unless the SQL has ORDER BY
 and asks for top/bottom results.
 ```
+
+Company addition:
+
+Separate model latency from database latency. The assignment load-test numbers
+were end-to-end agent latency. In production, track at least:
+
+```text
+schema retrieval latency
+LLM generation latency
+SQL validation latency
+database execution latency
+verification latency
+total response latency
+```
+
+This split makes tuning decisions more accurate. If P95 is high because of
+database execution, changing vLLM batching will not fix the real bottleneck.
 
 ## 6. Run SQL in a Safe Environment
 
@@ -346,6 +510,33 @@ Why audit logs matter:
 They let you debug bad answers, investigate data access, measure adoption, and
 prove compliance if the system touches sensitive company data.
 
+Observability based on the assignment:
+
+Use two observability layers:
+
+1. Application and agent traces, such as Langfuse.
+2. Serving and infrastructure metrics, such as Prometheus and Grafana.
+
+Langfuse answers:
+
+```text
+What did the model see?
+What SQL did it generate?
+Did verification pass?
+Was revision triggered?
+Which step failed?
+```
+
+Grafana answers:
+
+```text
+Was vLLM serving traffic?
+Was latency increasing?
+Were requests queued?
+Were tokens/sec stable?
+Was KV-cache pressure visible?
+```
+
 ## 7. Add Human Approval for Sensitive Queries
 
 What to do:
@@ -396,6 +587,92 @@ This question requires access to sensitive customer-level data. I can provide an
 aggregated version, or you can request approval for row-level access.
 ```
 
+## Company Evaluation Plan
+
+The assignment used 30 evaluation questions and compared execution results
+against gold SQL. A company version should use the same idea, but the eval set
+must be built from real business questions.
+
+Recommended eval categories:
+
+```text
+simple lookup
+aggregation
+filtering by date
+top/bottom ranking
+multi-table join
+many-to-many join
+business metric definition
+sensitive-data request
+question that cannot be answered from allowed schema
+ambiguous question
+```
+
+Track these metrics:
+
+```text
+execution accuracy
+first-attempt accuracy
+final-after-revision accuracy
+revision rate
+invalid SQL rate
+blocked-query rate
+P50/P95/P99 latency
+database timeout rate
+user-visible error rate
+```
+
+The company should keep a regression suite. Any prompt change, model change,
+schema-retrieval change, or vLLM tuning change should rerun the eval before
+being deployed.
+
+## Company SLO Plan
+
+The assignment target was under 5 seconds P95 at 10+ RPS, but the final H100 run
+did not prove that target. A company should define staged SLOs instead of one
+large goal.
+
+Example staged SLOs:
+
+```text
+Internal alpha:
+- 1-2 RPS
+- P95 under 8 seconds
+- no destructive SQL possible
+- all queries logged
+
+Internal beta:
+- 5 RPS
+- P95 under 6 seconds
+- 70%+ execution accuracy on approved eval set
+- less than 2% user-visible errors
+
+Production target:
+- 10+ RPS
+- P95 under 5 seconds
+- 80%+ execution accuracy on approved eval set
+- zero unauthorized data access
+```
+
+This is more realistic than declaring production readiness after one H100 run.
+
+## Company Rollout Plan
+
+Recommended rollout:
+
+1. Start with one department and one analytics domain.
+2. Use read-only curated views, not raw production tables.
+3. Build a 50-100 question eval set from real analyst questions.
+4. Run the service in shadow mode where it generates SQL but does not execute
+   for end users.
+5. Let analysts compare generated SQL against known-good queries.
+6. Enable execution for low-risk aggregate questions.
+7. Add approval for sensitive or row-level requests.
+8. Expand table coverage only after accuracy and audit results are stable.
+
+Shadow mode is especially important. It lets the company collect failure cases
+without exposing users to wrong answers.
+
 ## Production Guardrail Checklist
 
 Use this checklist before connecting the system to real company data:
@@ -420,6 +697,10 @@ Use this checklist before connecting the system to real company data:
 [ ] Langfuse or equivalent tracing
 [ ] Evaluation set with company-specific questions
 [ ] Monitoring for latency, errors, and blocked queries
+[ ] Error taxonomy for wrong answers
+[ ] Separate latency metrics per pipeline stage
+[ ] H100 or GPU serving profile load-tested at target RPS
+[ ] Rollback plan for prompt/model/serving changes
 ```
 
 ## Recommended Development Plan
@@ -434,6 +715,8 @@ Use this checklist before connecting the system to real company data:
 8. Add tracing and audit logging.
 9. Run with internal power users.
 10. Expand schemas only after accuracy and safety are measured.
+11. Run a production-like load test at the target RPS.
+12. Publish a model card or internal system card with known limitations.
 
 ## What Not To Do
 
@@ -459,12 +742,32 @@ No logging because the tool is "only internal"
 Returning large PII result sets directly to chat
 ```
 
+Also avoid:
+
+```text
+Claiming an SLO was met when the test ran below the target RPS
+```
+
+```text
+Calling a tuning change successful just because one metric improved
+```
+
+```text
+Using screenshots from a different run than the reported JSON results
+```
+
 ## Summary
 
 Yes, the assignment SQL agent can become a company text-to-SQL assistant. The
 production version should be built as a governed query system: schema retrieval,
 strict SQL validation, read-only execution, limits, tracing, authorization, and
 human approval for sensitive data.
+
+The final H100 rerun makes the lesson more concrete. The architecture is viable,
+and the verifier/revision loop clearly adds value, but the prototype is not yet
+production-ready. A company implementation needs stronger schema linking,
+structured validation, better error analysis, staged SLOs, and load testing at
+the actual target throughput.
 
 The model should help write SQL. The application must remain responsible for
 safety.
