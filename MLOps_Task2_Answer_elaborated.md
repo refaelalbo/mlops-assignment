@@ -595,7 +595,7 @@ manual tests, Grafana checks, Langfuse traces, evals, and load tests.
 
 #### 12. Validate vLLM on the VM
 
-From another VM terminal:
+From Terminal D on the VM:
 
 ```bash
 curl http://localhost:8000/health
@@ -2272,7 +2272,8 @@ Quality change: improved top-line pass rate, 6/30 -> 11/30 (+5)
 Troubleshooting:
 
 - If `agent_error` says `ConnectError`, the agent was not running.
-- If many items are HTTP 500, inspect the agent terminal and Langfuse traces for
+- If many items are HTTP 500, inspect Terminal C, where the agent is running,
+  and Langfuse traces for
   brittle model output, invalid SQL, or parser failures.
 - A low pass rate is still valid evidence if the harness ran correctly. Report
   the failure modes honestly.
