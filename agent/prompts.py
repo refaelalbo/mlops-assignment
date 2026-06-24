@@ -1,5 +1,9 @@
 """Prompt templates for the agent nodes.
 
+# Goal: Keep all LLM instructions in one file.
+# Why: Prompt changes are part of the agent design and should be easy to audit
+# separately from graph control-flow code.
+
 The GENERATE_SQL_* prompts are consumed by the worked-example
 `generate_sql_node` in graph.py via `.format(schema=..., question=...)`, so
 keep those placeholders intact. The VERIFY_* and REVISE_* prompts are yours to
@@ -8,6 +12,9 @@ design alongside their nodes - pick whatever placeholders your nodes pass in.
 Filling these in is part of Phase 3.
 """
 
+# Goal: Constrain the first model call to one SQLite SELECT query.
+# Why: The executor expects SQL only; explanations, markdown, or hidden thinking
+# would become invalid SQL.
 GENERATE_SQL_SYSTEM = """You are a careful text-to-SQL assistant.
 Return exactly one SQLite SELECT query and nothing else.
 Use only tables and columns from the provided schema.
@@ -17,6 +24,9 @@ Do not output hidden reasoning, chain-of-thought, or <think> blocks.
 Your first token must be SELECT."""
 
 # Available placeholders: {schema}, {question}
+# Goal: Provide the rendered DB schema and the user's natural-language request.
+# Why: The LLM needs both structure and intent to choose tables, joins, filters,
+# aggregations, and output columns.
 GENERATE_SQL_USER = """Schema:
 {schema}
 
@@ -27,6 +37,8 @@ Write the SQLite query that answers the question.
 /no_think"""
 
 
+# Goal: Ask a separate model step to judge executed output, not raw SQL style.
+# Why: Correctness in this assignment means the query result answers the user.
 VERIFY_SYSTEM = """You verify whether an executed SQL result plausibly answers a question.
 Return only a compact JSON object with this exact shape:
 {"ok": true, "issue": ""}
@@ -44,6 +56,9 @@ Do not require revision merely because the result is small, a count is zero, or 
 Do not output hidden reasoning, chain-of-thought, or <think> blocks.
 Your first token must be {."""
 
+# Goal: Give the verifier the question, SQL, and compact execution evidence.
+# Why: It can catch semantic failures like zero rows, wrong selected columns, or
+# ignored conditions.
 VERIFY_USER = """Question:
 {question}
 
@@ -57,6 +72,9 @@ Does the execution result plausibly answer the question? Return only JSON.
 /no_think"""
 
 
+# Goal: Instruct the model how to repair a failed SQL attempt.
+# Why: Revision should preserve valid parts and specifically address the
+# verifier complaint.
 REVISE_SYSTEM = """You revise SQLite queries after a verifier found a problem.
 Return exactly one corrected SQLite SELECT query and nothing else.
 Use only tables and columns from the provided schema.
@@ -65,6 +83,9 @@ Do not use markdown fences. Do not explain your answer.
 Do not output hidden reasoning, chain-of-thought, or <think> blocks.
 Your first token must be SELECT."""
 
+# Goal: Provide the reviser with all context needed to fix the query.
+# Why: The schema/question define the target, while previous SQL/execution/issue
+# explain what went wrong.
 REVISE_USER = """Schema:
 {schema}
 

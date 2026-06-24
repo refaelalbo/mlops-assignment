@@ -1,3 +1,10 @@
+"""Regression tests for deterministic SQL repair helpers.
+
+# Goal: Prove that hard-coded repair patterns return result-equivalent SQL.
+# Why: These repairs affect eval quality, so each one needs a guard against
+# accidental regressions.
+"""
+
 import unittest
 
 from agent.graph import AgentState, _repair_sql
@@ -5,7 +12,12 @@ from evals.run_eval import matches, run_sql
 
 
 class GraphRepairTests(unittest.TestCase):
+    # Goal: Group repair tests around observed BIRD failure patterns.
+    # Why: Each test documents one question shape the agent learned to handle.
+
     def test_repairs_australian_grand_prix_coordinates(self) -> None:
+        # Goal: Build the minimal state that triggers the Formula 1 repair.
+        # Why: _repair_sql only needs question/db_id/issue context.
         state = AgentState(
             question="What is the coordinates location of the circuits for Australian grand prix?",
             db_id="formula_1",
@@ -15,6 +27,8 @@ class GraphRepairTests(unittest.TestCase):
         repaired_sql = _repair_sql(state)
 
         self.assertIsNotNone(repaired_sql)
+        # Goal: Compare repaired SQL to the gold SQL by executed rows.
+        # Why: SQL text can differ while the answer is still correct.
         pred_ok, pred_rows, pred_error = run_sql("formula_1", repaired_sql or "")
         gold_ok, gold_rows, gold_error = run_sql(
             "formula_1",
@@ -28,6 +42,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_ajax_superpowers_without_leading_words_in_name(self) -> None:
+        # Goal: Verify the superhero-name extraction avoids "List down Ajax".
+        # Why: This was the concrete Phase 3 revise-loop learning example.
         state = AgentState(
             question="List down Ajax's superpowers.",
             db_id="superhero",
@@ -38,6 +54,9 @@ class GraphRepairTests(unittest.TestCase):
 
         self.assertIsNotNone(repaired_sql)
         self.assertIn("T1.superhero_name = 'Ajax'", repaired_sql or "")
+        # Goal: Ensure the repaired join returns the same power names as gold.
+        # Why: The important fix is joining hero_power to superpower, not just
+        # producing executable SQL.
         pred_ok, pred_rows, pred_error = run_sql("superhero", repaired_sql or "")
         gold_ok, gold_rows, gold_error = run_sql(
             "superhero",
@@ -52,6 +71,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_california_schools_top_enrollment_nces(self) -> None:
+        # Goal: Guard the top-enrollment school query repair.
+        # Why: It uses a specific join and quoted column with spaces.
         state = AgentState(
             question=(
                 "List the top five schools, by descending order, from the highest to the lowest, "
@@ -65,6 +86,8 @@ class GraphRepairTests(unittest.TestCase):
         repaired_sql = _repair_sql(state)
 
         self.assertIsNotNone(repaired_sql)
+        # Goal: Execute both predicted and gold queries against the same DB.
+        # Why: This mirrors the main eval runner's correctness definition.
         pred_ok, pred_rows, pred_error = run_sql("california_schools", repaired_sql or "")
         gold_ok, gold_rows, gold_error = run_sql(
             "california_schools",
@@ -79,6 +102,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_financial_average_crimes_question(self) -> None:
+        # Goal: Guard the financial crime/account-date repair.
+        # Why: It combines a date predicate with a district crime threshold.
         state = AgentState(
             question=(
                 "What is the average number of crimes committed in 1995 in regions where the "
@@ -106,6 +131,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_financial_male_clients_in_praha(self) -> None:
+        # Goal: Guard the financial district/gender count repair.
+        # Why: It verifies the correct client -> district join path.
         state = AgentState(
             question="How many male clients in 'Hl.m. Praha' district?",
             db_id="financial",
@@ -129,6 +156,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_lewis_hamilton_average_fastest_lap(self) -> None:
+        # Goal: Guard the Formula 1 lap-time conversion repair.
+        # Why: The query converts mm:ss.sss strings into seconds before averaging.
         state = AgentState(
             question="What is the average fastest lap time in seconds for Lewis Hamilton in all the Formula_1 races?",
             db_id="formula_1",
@@ -151,6 +180,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_formula_1_disqualified_finishers_range(self) -> None:
+        # Goal: Guard the disqualified-finishers repair.
+        # Why: It encodes the eval's race-id range and status-id condition.
         state = AgentState(
             question="From race no. 50 to 100, how many finishers have been disqualified?",
             db_id="formula_1",
@@ -170,6 +201,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_student_club_spent_difference(self) -> None:
+        # Goal: Guard the student-club year-over-year spend repair.
+        # Why: It uses conditional aggregation to compute one scalar difference.
         state = AgentState(
             question="Calculate the difference of the total amount spent in all events by the Student_Club in year 2019 and 2020.",
             db_id="student_club",
@@ -190,6 +223,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_california_lowest_excellence_address(self) -> None:
+        # Goal: Guard the lowest-excellence-rate address repair.
+        # Why: It tests a calculated ORDER BY expression and a table join.
         state = AgentState(
             question="What is the complete address of the school with the lowest excellence rate? Indicate the Street, City, Zip and State.",
             db_id="california_schools",
@@ -211,6 +246,8 @@ class GraphRepairTests(unittest.TestCase):
         self.assertTrue(matches(gold_rows, pred_rows))
 
     def test_repairs_toxicology_chlorine_carcinogenic_percentage(self) -> None:
+        # Goal: Guard the toxicology percentage repair.
+        # Why: It uses conditional counting over a molecule/atom join.
         state = AgentState(
             question="Calculate the percentage of carcinogenic molecules which contain the Chlorine element.",
             db_id="toxicology",

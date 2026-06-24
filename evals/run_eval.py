@@ -1,5 +1,9 @@
 """Eval runner using execution accuracy.
 
+# Goal: Measure whether generated SQL returns the same rows as the gold SQL.
+# Why: Text-to-SQL should be scored by answer equivalence, not by exact SQL
+# string matching.
+
 Reads evals/eval_set.jsonl, calls the agent at AGENT_URL on each question,
 then compares the agent's SQL output to the gold SQL by *executed rows*
 (canonicalized: sorted, stringified, None-coerced to empty).
@@ -31,8 +35,12 @@ AGENT_URL_DEFAULT = "http://localhost:8001/answer"
 
 def run_sql(db_id: str, sql: str, timeout: float = 5.0) -> tuple[bool, list[tuple] | None, str | None]:
     """Run sql against db_id in read-only mode. Returns (ok, rows, error)."""
+    # Goal: Execute both gold and predicted SQL against the same DB.
+    # Why: Row-level comparison makes different-but-equivalent SQL acceptable.
     path = DB_DIR / f"{db_id}.sqlite"
     try:
+        # Goal: Open the DB read-only during evaluation.
+        # Why: Eval should never mutate benchmark data.
         with sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=timeout) as conn:
             cur = conn.execute(sql)
             rows = cur.fetchall()
@@ -43,12 +51,17 @@ def run_sql(db_id: str, sql: str, timeout: float = 5.0) -> tuple[bool, list[tupl
 
 def canonicalize(rows: list[tuple] | None) -> list[tuple] | None:
     """Sort rows; coerce cells to str; None -> ''."""
+    # Goal: Normalize row ordering and cell representation before comparison.
+    # Why: Many SQL queries are correct even if row order or Python value types
+    # differ from the gold query output.
     if rows is None:
         return None
     return sorted(tuple("" if c is None else str(c) for c in row) for row in rows)
 
 
 def matches(gold_rows: list[tuple] | None, pred_rows: list[tuple] | None) -> bool:
+    # Goal: Return true only when both executions produced comparable rows.
+    # Why: Failed SQL or missing rows cannot be considered correct.
     if gold_rows is None or pred_rows is None:
         return False
     return canonicalize(gold_rows) == canonicalize(pred_rows)
@@ -58,15 +71,22 @@ def matches(gold_rows: list[tuple] | None, pred_rows: list[tuple] | None) -> boo
 
 def eval_one(question: dict, agent_url: str) -> dict:
     """Score one question. Return a dict capturing per-iteration correctness."""
+    # Goal: Pull the benchmark fields needed for one scoring unit.
+    # Why: Each eval row is a natural-language question, target DB, and gold SQL.
     db_id = question["db_id"]
     gold_sql = question["gold_sql"]
 
+    # Goal: Execute the gold SQL first.
+    # Why: If the reference query fails, the item should not be marked correct.
     gold_ok, gold_rows, gold_error = run_sql(db_id, gold_sql)
 
     t0 = time.monotonic()
     agent_error = None
     agent_payload: dict = {}
     try:
+        # Goal: Ask the running agent service for its final answer.
+        # Why: Evaluation should test the same HTTP path used by load tests and
+        # manual users, including tracing and graph behavior.
         with httpx.Client(timeout=120.0) as client:
             resp = client.post(
                 agent_url,
@@ -82,13 +102,21 @@ def eval_one(question: dict, agent_url: str) -> dict:
         resp.raise_for_status()
         agent_payload = resp.json()
     except Exception as e:  # noqa: BLE001
+        # Goal: Capture agent/HTTP failures as result data.
+        # Why: A bad item should contribute to eval metrics without crashing the
+        # whole benchmark run.
         agent_error = f"{type(e).__name__}: {e}"
 
     latency = time.monotonic() - t0
     pred_sql = agent_payload.get("sql", "")
+    # Goal: Re-execute the final predicted SQL locally.
+    # Why: The eval's correctness check should be independent of the agent's
+    # self-reported ok flag.
     pred_ok, pred_rows, pred_error = run_sql(db_id, pred_sql) if pred_sql else (False, None, "missing SQL")
     correct = gold_ok and pred_ok and matches(gold_rows, pred_rows)
 
+    # Goal: Score each generation/revision attempt in the history.
+    # Why: This shows whether the revise loop improves over the first SQL.
     iteration_results: list[dict] = []
     attempt_no = 0
     for event in agent_payload.get("history", []):
@@ -96,6 +124,8 @@ def eval_one(question: dict, agent_url: str) -> dict:
             continue
         attempt_no += 1
         sql = event.get("sql", "")
+        # Goal: Execute each attempt, not just the final SQL.
+        # Why: Per-iteration pass rates quantify the value of revision.
         ok, rows, err = run_sql(db_id, sql) if sql else (False, None, "missing SQL")
         iteration_results.append({
             "iteration": attempt_no,
@@ -106,6 +136,9 @@ def eval_one(question: dict, agent_url: str) -> dict:
         })
 
     return {
+        # Goal: Store enough detail for both summary metrics and failure analysis.
+        # Why: The final report needs aggregate numbers, while debugging needs
+        # SQL, errors, latency, and history.
         "question": question["question"],
         "db_id": db_id,
         "gold_sql": gold_sql,
@@ -133,6 +166,8 @@ def summarize(results: list[dict]) -> dict:
     The agent stopped emitting; whatever it had at termination is what
     would have been served had we polled at iteration k.
     """
+    # Goal: Build top-line quality, agent-health, revision, and latency metrics.
+    # Why: REPORT.md uses this summary to compare baseline and after-tuning runs.
     total = len(results)
     correct = sum(1 for r in results if r.get("correct"))
     agent_ok = sum(1 for r in results if r.get("agent_ok"))
@@ -141,11 +176,16 @@ def summarize(results: list[dict]) -> dict:
     max_iter = max((r.get("iterations") or 0 for r in results), default=0)
 
     def pct(p: float) -> float | None:
+        # Goal: Select percentile values from sorted latencies.
+        # Why: P50/P95 are more informative than only average latency.
         if not latencies:
             return None
         k = int(round(p * (len(latencies) - 1)))
         return latencies[k]
 
+    # Goal: Carry forward each question's last available attempt.
+    # Why: If an agent stops early, later "iteration slots" represent the same
+    # served answer rather than missing data.
     per_iteration: dict[str, dict] = {}
     for i in range(1, max_iter + 1):
         iter_correct = 0
@@ -184,18 +224,25 @@ def summarize(results: list[dict]) -> dict:
 # ---------- Main (provided) --------------------------------------------
 
 def main() -> None:
+    # Goal: Make eval input/output paths configurable from the CLI.
+    # Why: The same runner is used for local, H100, baseline, and after-tuning
+    # result files.
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval-set", type=Path, default=DEFAULT_EVAL_FILE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT_FILE)
     parser.add_argument("--agent-url", default=AGENT_URL_DEFAULT)
     args = parser.parse_args()
 
+    # Goal: Load JSONL questions while skipping blank lines.
+    # Why: JSONL makes the benchmark easy to inspect and append to.
     questions = [json.loads(line) for line in args.eval_set.read_text().splitlines() if line.strip()]
     print(f"Loaded {len(questions)} eval questions from {args.eval_set}")
 
     results: list[dict] = []
     t0 = time.monotonic()
     for i, q in enumerate(questions, 1):
+        # Goal: Print progress with db_id and question preview.
+        # Why: Long H100 eval runs need visible progress in Terminal D.
         print(f"[{i}/{len(questions)}] {q['db_id']}: {q['question'][:60]}...", flush=True)
         results.append(eval_one(q, args.agent_url))
     elapsed = time.monotonic() - t0
@@ -206,6 +253,8 @@ def main() -> None:
         "wall_clock_seconds": elapsed,
         "results": results,
     }
+    # Goal: Persist both summary and raw per-question results.
+    # Why: The report uses summary numbers, while later debugging needs details.
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(out, indent=2))
     print(f"Wrote {args.out}")

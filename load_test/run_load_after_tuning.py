@@ -1,5 +1,9 @@
 """Load runner for the after-tuning pass.
 
+# Goal: Run the same load driver after a real serving/agent tuning change.
+# Why: Phase 6 requires a fair before/after comparison with identical traffic
+# generation and a recorded tuning note.
+
 This reuses load_test/driver.py so the load-generation logic stays identical
 between baseline and after-tuning runs. The default output file is
 results/load_after_tuning.json.
@@ -26,6 +30,8 @@ DEFAULT_OUT = ROOT / "results" / "load_after_tuning.json"
 
 
 def main() -> None:
+    # Goal: Keep load-test parameters configurable but require a tuning note.
+    # Why: "After tuning" is only meaningful if a real change is documented.
     parser = argparse.ArgumentParser()
     parser.add_argument("--rps", type=float, default=2.0, help="target requests/second")
     parser.add_argument("--duration", type=int, default=120, help="seconds to drive load")
@@ -40,8 +46,12 @@ def main() -> None:
 
     print("Writing after-tuning load results.")
     print(f"Tuning note: {args.tuning_note}")
+    # Goal: Reuse the baseline load engine exactly.
+    # Why: Any metric change should come from tuning, not a different driver.
     asyncio.run(drive(args))
 
+    # Goal: Annotate the output JSON after the shared driver writes it.
+    # Why: The report can identify the run type and the tuning action later.
     data = json.loads(args.out.read_text())
     data["run_type"] = "after_tuning"
     data["tuning_note"] = args.tuning_note

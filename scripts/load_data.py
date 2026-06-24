@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Download and prepare the BIRD dev set for this assignment.
 
+# Goal: Create the local SQLite databases and benchmark JSONL files.
+# Why: The agent, eval runner, and load driver all depend on local data files
+# with stable paths.
+
 Produces:
 - data/bird/<db_id>.sqlite          - sqlite DB per database, surfaced at the top
 - data/bird/dev_databases/...       - raw extracted contents
@@ -22,6 +26,8 @@ DATA_DIR = ROOT / "data" / "bird"
 EVAL_FILE = ROOT / "evals" / "eval_set.jsonl"
 PERF_FILE = ROOT / "load_test" / "perf_pool.jsonl"
 
+# Goal: Allow the download URL to be overridden without editing code.
+# Why: Mirrors, cached files, or restricted networks may need a different source.
 BIRD_DEV_URL = os.environ.get(
     "BIRD_DEV_URL",
     "https://bird-bench.oss-cn-beijing.aliyuncs.com/dev.zip",
@@ -29,19 +35,29 @@ BIRD_DEV_URL = os.environ.get(
 
 # Empty = use every DB present in BIRD dev. Restrict here only if you
 # specifically want a smaller corpus.
+# Goal: Keep the default benchmark broad across all available BIRD DBs.
+# Why: A broad eval better exercises schema rendering and SQL generation.
 SCOPED_DBS: list[str] = []
 
+# Goal: Fix dataset sizes used by eval and load-test artifacts.
+# Why: Stable counts make report metrics comparable across reruns.
 N_EVAL = 30
 N_PERF = 1500
 
 
 def download_and_extract() -> None:
+    # Goal: Ensure the data directory exists before downloads/extraction.
+    # Why: Later scripts assume data/bird is the canonical DB root.
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     zip_path = DATA_DIR / "dev.zip"
     if not zip_path.exists():
+        # Goal: Download only when the archive is missing.
+        # Why: Re-running setup should be idempotent and avoid repeated network.
         print(f"Downloading {BIRD_DEV_URL} ...")
         urllib.request.urlretrieve(BIRD_DEV_URL, zip_path)
     if not any(DATA_DIR.rglob("dev.json")):
+        # Goal: Extract the outer BIRD archive when dev.json is absent.
+        # Why: dev.json contains questions, db_id values, and gold SQL.
         print(f"Extracting outer archive into {DATA_DIR} ...")
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(DATA_DIR)
@@ -50,21 +66,29 @@ def download_and_extract() -> None:
     # *.sqlite files. Extract it if present and not already unpacked.
     inner_zip = next(DATA_DIR.rglob("dev_databases.zip"), None)
     if inner_zip is not None and not any(DATA_DIR.rglob("*.sqlite")):
+        # Goal: Extract the SQLite DBs only once.
+        # Why: The agent cannot run until the concrete *.sqlite files exist.
         print(f"Extracting inner archive {inner_zip} ...")
         with zipfile.ZipFile(inner_zip) as zf:
             zf.extractall(inner_zip.parent)
 
 
 def build_eval_files() -> None:
+    # Goal: Locate BIRD's dev question file after extraction.
+    # Why: It is the source for both eval_set.jsonl and perf_pool.jsonl.
     dev_json_path = next(DATA_DIR.rglob("dev.json"), None)
     if dev_json_path is None:
         sys.exit("Could not find dev.json after extraction - check the archive layout.")
 
     rows = json.loads(dev_json_path.read_text())
     if SCOPED_DBS:
+        # Goal: Optionally restrict the benchmark to selected databases.
+        # Why: Useful for focused debugging without changing downstream code.
         rows = [r for r in rows if r.get("db_id") in SCOPED_DBS]
     print(f"Loaded {len(rows)} questions across {len({r['db_id'] for r in rows})} DBs.")
 
+    # Goal: Shuffle deterministically before splitting eval/perf rows.
+    # Why: Reproducible question selection is essential for comparing runs.
     rnd = random.Random(0)  # stable shuffle for reproducibility
     rnd.shuffle(rows)
 
@@ -74,6 +98,8 @@ def build_eval_files() -> None:
     EVAL_FILE.parent.mkdir(parents=True, exist_ok=True)
     with EVAL_FILE.open("w") as f:
         for r in eval_rows:
+            # Goal: Store only the fields the eval runner needs.
+            # Why: A compact JSONL file is easy to inspect and version.
             f.write(json.dumps({
                 "question": r["question"],
                 "db_id": r["db_id"],
@@ -87,6 +113,8 @@ def build_eval_files() -> None:
     perf_rows = perf_source[:N_PERF]
     with PERF_FILE.open("w") as f:
         for r in perf_rows:
+            # Goal: Store load-test questions without gold SQL.
+            # Why: Load tests measure service behavior, not correctness scoring.
             f.write(json.dumps({
                 "question": r["question"],
                 "db_id": r["db_id"],
@@ -96,15 +124,22 @@ def build_eval_files() -> None:
 
 def consolidate_sqlite() -> None:
     """Surface every db at data/bird/<db_id>.sqlite for easy loading."""
+    # Goal: Copy nested BIRD SQLite files to a flat canonical location.
+    # Why: agent/schema.py expects data/bird/<db_id>.sqlite.
     seen: set[str] = set()
     for found in DATA_DIR.rglob("*.sqlite"):
         db_id = found.stem
         if db_id in seen:
+            # Goal: Keep the first DB copy for each db_id.
+            # Why: The archive may contain nested paths; duplicates should not
+            # overwrite an already surfaced DB unexpectedly.
             continue
         seen.add(db_id)
         dest = DATA_DIR / f"{db_id}.sqlite"
         if not dest.exists() or dest.resolve() != found.resolve():
             shutil.copy(found, dest)
+    # Goal: Confirm the flat DB files exist after consolidation.
+    # Why: Missing DBs would later produce FileNotFoundError in the agent.
     available = sorted(p.stem for p in DATA_DIR.glob("*.sqlite"))
     print(f"Sqlite DBs available: {available}")
     if not available:
