@@ -336,6 +336,81 @@ The final report explicitly listed schema-linking as the first improvement to
 make with more time. This is the highest-value company upgrade because it can
 improve accuracy, reduce prompt size, and reduce latency at the same time.
 
+## 3.1 How Free Text Becomes SQL
+
+Conceptually, a text-to-SQL system needs three inputs:
+
+```text
+user question
++ table/column schema
++ table relationship graph
+```
+
+Then it can produce a valid SQL query.
+
+Example from the assignment:
+
+```text
+Question:
+List down Ajax's superpowers.
+
+Tables and columns:
+superhero(id, superhero_name, ...)
+hero_power(hero_id, power_id)
+superpower(id, power_name)
+
+Relationships:
+hero_power.hero_id -> superhero.id
+hero_power.power_id -> superpower.id
+```
+
+The schema-aware SQL is:
+
+```sql
+SELECT sp.power_name
+FROM superhero s
+JOIN hero_power hp ON s.id = hp.hero_id
+JOIN superpower sp ON hp.power_id = sp.id
+WHERE s.superhero_name = 'Ajax';
+```
+
+In the assignment, the user does not manually upload the schema for every
+question. The API receives:
+
+```json
+{
+  "question": "List down Ajax's superpowers.",
+  "db": "superhero"
+}
+```
+
+The code maps `db="superhero"` to:
+
+```text
+data/bird/superhero.sqlite
+```
+
+Then `agent/schema.py` introspects the SQLite file, reads tables, columns, and
+foreign keys, renders them as schema text, and sends that schema context to the
+LLM together with the user question.
+
+For a company system, the equivalent production flow is:
+
+```text
+connect to approved database or warehouse
+-> introspect tables, columns, primary keys, and foreign keys
+-> retrieve only schema objects relevant to the question
+-> send compact schema context plus the user question to the LLM
+-> generate SQL
+-> validate SQL safety
+-> execute read-only
+-> verify whether the result answers the question
+```
+
+The relationship graph is not only for human visualization in DBeaver. The LLM
+also needs those relationships, either from declared foreign keys or from
+curated metadata, so it knows which joins are valid.
+
 ## 4. Include Relationships and Primary Keys
 
 What to do:
